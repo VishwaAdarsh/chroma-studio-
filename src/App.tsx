@@ -76,7 +76,18 @@ export function App() {
   const [isComparing, setIsComparing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [favorites, setFavorites] = useState<string[]>(StorageService.getFavorites());
-  const [recentProjects, setRecentProjects] = useState<Project[]>(StorageService.getProjects());
+  const [recentProjects, setRecentProjects] = useState<Project[]>(StorageService.getProjectsSync());
+
+  // Load projects from IndexedDB & trigger auto-migration
+  useEffect(() => {
+    let mounted = true;
+    StorageService.getProjects().then((projects) => {
+      if (mounted) setRecentProjects(projects);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Pipeline Output
   const [histogram, setHistogram] = useState<HistogramData | null>(null);
@@ -87,34 +98,56 @@ export function App() {
   const imageElementRef = useRef<HTMLImageElement | null>(null);
   const isRenderingRef = useRef(false);
 
-  // Helper to push state onto undo stack
-  const pushHistory = useCallback(() => {
-    const currentSnapshot: HistorySnapshot = {
-      adjustments: { ...adjustments },
-      activePresetId,
-      presetIntensity,
-      geometry: JSON.parse(JSON.stringify(geometry)),
-      curves: JSON.parse(JSON.stringify(curves)),
-      wheels: JSON.parse(JSON.stringify(wheels)),
-    };
-    setHistoryPast((prev) => [...prev.slice(-25), currentSnapshot]);
+  // Interaction tracking for single-commit slider/wheel drag gestures
+  const isInteractingRef = useRef(false);
+  const preInteractionSnapshotRef = useRef<HistorySnapshot | null>(null);
+
+  // Capture complete immutable state snapshot
+  const captureSnapshot = useCallback((): HistorySnapshot => ({
+    adjustments: { ...adjustments },
+    activePresetId,
+    presetIntensity,
+    geometry: JSON.parse(JSON.stringify(geometry)),
+    curves: JSON.parse(JSON.stringify(curves)),
+    wheels: JSON.parse(JSON.stringify(wheels)),
+  }), [adjustments, activePresetId, presetIntensity, geometry, curves, wheels]);
+
+  // Push immediate state to undo stack (for discrete operations)
+  const commitImmediateHistory = useCallback(() => {
+    const snapshot = captureSnapshot();
+    setHistoryPast((past) => [...past.slice(-24), snapshot]);
     setHistoryFuture([]);
-  }, [adjustments, activePresetId, presetIntensity, geometry, curves, wheels]);
+  }, [captureSnapshot]);
+
+  // Called when user initiates a continuous drag gesture (slider/wheel)
+  const handleInteractionStart = useCallback(() => {
+    if (!isInteractingRef.current) {
+      preInteractionSnapshotRef.current = captureSnapshot();
+      isInteractingRef.current = true;
+    }
+  }, [captureSnapshot]);
+
+  // Called when user completes the drag gesture
+  const handleInteractionEnd = useCallback(() => {
+    if (isInteractingRef.current && preInteractionSnapshotRef.current) {
+      const prev = preInteractionSnapshotRef.current;
+      const curr = captureSnapshot();
+      // Only push to past history if values actually changed during the gesture
+      if (JSON.stringify(prev) !== JSON.stringify(curr)) {
+        setHistoryPast((past) => [...past.slice(-24), prev]);
+        setHistoryFuture([]);
+      }
+      isInteractingRef.current = false;
+      preInteractionSnapshotRef.current = null;
+    }
+  }, [captureSnapshot]);
 
   // Undo
   const handleUndo = () => {
     if (historyPast.length === 0) return;
     const previous = historyPast[historyPast.length - 1];
     const newPast = historyPast.slice(0, -1);
-
-    const currentSnapshot: HistorySnapshot = {
-      adjustments: { ...adjustments },
-      activePresetId,
-      presetIntensity,
-      geometry: JSON.parse(JSON.stringify(geometry)),
-      curves: JSON.parse(JSON.stringify(curves)),
-      wheels: JSON.parse(JSON.stringify(wheels)),
-    };
+    const currentSnapshot = captureSnapshot();
 
     setHistoryFuture((prev) => [currentSnapshot, ...prev]);
     setHistoryPast(newPast);
@@ -132,17 +165,9 @@ export function App() {
     if (historyFuture.length === 0) return;
     const next = historyFuture[0];
     const newFuture = historyFuture.slice(1);
+    const currentSnapshot = captureSnapshot();
 
-    const currentSnapshot: HistorySnapshot = {
-      adjustments: { ...adjustments },
-      activePresetId,
-      presetIntensity,
-      geometry: JSON.parse(JSON.stringify(geometry)),
-      curves: JSON.parse(JSON.stringify(curves)),
-      wheels: JSON.parse(JSON.stringify(wheels)),
-    };
-
-    setHistoryPast((prev) => [...prev, currentSnapshot]);
+    setHistoryPast((prev) => [...prev.slice(-24), currentSnapshot]);
     setHistoryFuture(newFuture);
 
     setAdjustments(next.adjustments);
@@ -291,7 +316,7 @@ export function App() {
   };
 
   // Auto-Save project to storage when exiting editor
-  const saveCurrentProjectToStorage = () => {
+  const saveCurrentProjectToStorage = async () => {
     if (!imageSrc) return;
     const project: Project = {
       id: projectId,
@@ -310,23 +335,23 @@ export function App() {
       curves,
       wheels,
     };
-    StorageService.saveProject(project);
-    setRecentProjects(StorageService.getProjects());
+    await StorageService.saveProject(project);
+    const updated = await StorageService.getProjects();
+    setRecentProjects(updated);
   };
 
   // Adjustment Change Handlers
   const handleAdjustmentChange = (param: keyof AdjustmentParameters, value: number) => {
-    pushHistory();
     setAdjustments((prev) => ({ ...prev, [param]: value }));
   };
 
   const handleResetAdjustmentParam = (param: keyof AdjustmentParameters) => {
-    pushHistory();
+    commitImmediateHistory();
     setAdjustments((prev) => ({ ...prev, [param]: DEFAULT_ADJUSTMENTS[param] }));
   };
 
   const handleResetAdjustmentGroup = (group: 'tone' | 'color') => {
-    pushHistory();
+    commitImmediateHistory();
     if (group === 'tone') {
       setAdjustments((prev) => ({
         ...prev,
@@ -351,7 +376,7 @@ export function App() {
 
   // Preset Selection Handlers
   const handleSelectPreset = (preset: Preset | null) => {
-    pushHistory();
+    commitImmediateHistory();
     if (preset) {
       setActivePresetId(preset.id);
       setPresetIntensity(preset.defaultIntensity || 100);
@@ -369,7 +394,7 @@ export function App() {
 
   // Magic Auto-Tone Handler
   const handleMagicAutoTone = () => {
-    pushHistory();
+    commitImmediateHistory();
     setAdjustments((prev) => ({
       ...prev,
       exposure: 0.35,
@@ -426,7 +451,7 @@ export function App() {
       settings.scale
     );
 
-    // Encode to data URL / Blob
+    // Encode to Blob instead of heavy base64 DataURL
     const mimeType =
       settings.format === 'png'
         ? 'image/png'
@@ -434,17 +459,27 @@ export function App() {
         ? 'image/webp'
         : 'image/jpeg';
 
-    const dataUrl = offscreen.toDataURL(mimeType, settings.quality);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      offscreen.toBlob((b) => resolve(b), mimeType, settings.quality)
+    );
 
-    // Trigger download
+    // Release offscreen canvas memory
+    offscreen.width = 0;
+    offscreen.height = 0;
+
+    if (!blob) throw new Error('Failed to create export blob');
+
+    // Trigger download via temporary Object URL
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const baseName = projectName.replace(/\.[^/.]+$/, '');
     link.download = `${baseName}_graded.${settings.format}`;
-    link.href = dataUrl;
+    link.href = objectUrl;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
 
     // Auto-save project upon export
-    saveCurrentProjectToStorage();
+    await saveCurrentProjectToStorage();
   };
 
   // If in Home View, display HomeDashboard
@@ -517,6 +552,8 @@ export function App() {
               onChangeIntensity={setPresetIntensity}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
             />
           )}
 
@@ -526,6 +563,8 @@ export function App() {
               onChange={handleAdjustmentChange}
               onResetParam={handleResetAdjustmentParam}
               onResetGroup={handleResetAdjustmentGroup}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
             />
           )}
 
@@ -533,11 +572,11 @@ export function App() {
             <CropPanel
               geometry={geometry}
               onChange={(geo) => {
-                pushHistory();
+                commitImmediateHistory();
                 setGeometry(geo);
               }}
               onReset={() => {
-                pushHistory();
+                commitImmediateHistory();
                 setGeometry(DEFAULT_GEOMETRY);
               }}
             />
@@ -547,11 +586,11 @@ export function App() {
             <ToneCurvesEditor
               curves={curves}
               onChange={(c) => {
-                pushHistory();
+                commitImmediateHistory();
                 setCurves(c);
               }}
               onReset={() => {
-                pushHistory();
+                commitImmediateHistory();
                 setCurves(DEFAULT_CURVES);
               }}
             />
@@ -561,14 +600,13 @@ export function App() {
             <div className="flex flex-col gap-3">
               <ColorWheelsEditor
                 wheels={wheels}
-                onChange={(w) => {
-                  pushHistory();
-                  setWheels(w);
-                }}
+                onChange={setWheels}
                 onReset={() => {
-                  pushHistory();
+                  commitImmediateHistory();
                   setWheels(DEFAULT_WHEELS);
                 }}
+                onInteractionStart={handleInteractionStart}
+                onInteractionEnd={handleInteractionEnd}
               />
               <ColorPaletteAssistant
                 dominantColors={dominantColors}
@@ -585,6 +623,8 @@ export function App() {
               adjustments={adjustments}
               onChange={handleAdjustmentChange}
               onResetParam={handleResetAdjustmentParam}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
             />
           )}
         </div>

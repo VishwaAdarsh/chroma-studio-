@@ -118,6 +118,136 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 /**
+ * Fast 1D Separable Box Blur for Luminance channel
+ */
+export function boxBlurLuminance(lum: Float32Array, w: number, h: number, radius: number): Float32Array {
+  const temp = new Float32Array(w * h);
+  const out = new Float32Array(w * h);
+  const r = Math.max(1, Math.floor(radius));
+
+  // Horizontal blur: lum -> temp
+  for (let y = 0; y < h; y++) {
+    const rowOffset = y * w;
+    let sum = 0;
+    for (let k = -r; k <= r; k++) {
+      const px = Math.min(w - 1, Math.max(0, k));
+      sum += lum[rowOffset + px];
+    }
+    const windowSize = 2 * r + 1;
+    temp[rowOffset] = sum / windowSize;
+
+    for (let x = 1; x < w; x++) {
+      const prevX = Math.max(0, x - 1 - r);
+      const nextX = Math.min(w - 1, x + r);
+      sum += lum[rowOffset + nextX] - lum[rowOffset + prevX];
+      temp[rowOffset + x] = sum / windowSize;
+    }
+  }
+
+  // Vertical blur: temp -> out
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let k = -r; k <= r; k++) {
+      const py = Math.min(h - 1, Math.max(0, k));
+      sum += temp[py * w + x];
+    }
+    const windowSize = 2 * r + 1;
+    out[x] = sum / windowSize;
+
+    for (let y = 1; y < h; y++) {
+      const prevY = Math.max(0, y - 1 - r);
+      const nextY = Math.min(h - 1, y + r);
+      sum += temp[nextY * w + x] - temp[prevY * w + x];
+      out[y * w + x] = sum / windowSize;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Applies Clarity (Local Midtone Contrast Enhancement)
+ * Enhances micro-contrast in the midtones using local high-frequency difference
+ * with a sinusoidal weighting bell curve that tapers to 0 at shadows and highlights.
+ */
+export function applyClarity(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  clarity: number
+): void {
+  if (clarity === 0 || w <= 0 || h <= 0) return;
+
+  const len = w * h;
+  const lum = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const idx = i * 4;
+    lum[i] = 0.2126 * data[idx] + 0.7152 * data[idx + 1] + 0.0722 * data[idx + 2];
+  }
+
+  const radius = Math.max(2, Math.min(16, Math.round(Math.min(w, h) / 100)));
+  const blurred = boxBlurLuminance(lum, w, h, radius);
+
+  const factor = (clarity / 100) * 1.5;
+  for (let i = 0; i < len; i++) {
+    const idx = i * 4;
+    const l = lum[i];
+    const diff = l - blurred[i];
+    // Sinusoidal midtone bell curve: peak at midtones, 0 at extremes
+    const u = Math.max(0, Math.min(1, l / 255));
+    const midtoneWeight = Math.sin(Math.PI * u);
+    const delta = diff * factor * midtoneWeight;
+
+    data[idx] = Math.max(0, Math.min(255, data[idx] + delta));
+    data[idx + 1] = Math.max(0, Math.min(255, data[idx + 1] + delta));
+    data[idx + 2] = Math.max(0, Math.min(255, data[idx + 2] + delta));
+  }
+}
+
+/**
+ * Applies Sharpen (Discrete Laplacian Edge Acutance Kernel)
+ * Enhances edge definition while preserving alpha transparency and clamping to [0, 255].
+ */
+export function applySharpen(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  sharpen: number
+): void {
+  if (sharpen <= 0 || w <= 0 || h <= 0) return;
+
+  const k = (sharpen / 100) * 0.6;
+  if (k <= 0) return;
+
+  const src = new Uint8ClampedArray(data);
+  for (let y = 0; y < h; y++) {
+    const yUp = y > 0 ? y - 1 : 0;
+    const yDown = y < h - 1 ? y + 1 : h - 1;
+    const rowOffset = y * w;
+    const upOffset = yUp * w;
+    const downOffset = yDown * w;
+
+    for (let x = 0; x < w; x++) {
+      const xLeft = x > 0 ? x - 1 : 0;
+      const xRight = x < w - 1 ? x + 1 : w - 1;
+
+      const center = (rowOffset + x) * 4;
+      const top = (upOffset + x) * 4;
+      const bottom = (downOffset + x) * 4;
+      const left = (rowOffset + xLeft) * 4;
+      const right = (rowOffset + xRight) * 4;
+
+      for (let c = 0; c < 3; c++) {
+        const val =
+          (1 + 4 * k) * src[center + c] -
+          k * (src[top + c] + src[bottom + c] + src[left + c] + src[right + c]);
+        data[center + c] = Math.max(0, Math.min(255, Math.round(val)));
+      }
+    }
+  }
+}
+
+/**
  * Main rendering pipeline
  */
 export function processImage(
@@ -201,23 +331,35 @@ export function processImage(
   const fadeLift = adjustments.fade * 1.2;
   const grainAmount = adjustments.grain / 100;
 
-  // Split-toning color tint vectors
+  // Split-toning color tint vectors & luminance deltas
   let shadowTintR = 0, shadowTintG = 0, shadowTintB = 0;
+  let midtoneTintR = 0, midtoneTintG = 0, midtoneTintB = 0;
   let highlightTintR = 0, highlightTintG = 0, highlightTintB = 0;
+  let shadowLumDelta = 0, midtoneLumDelta = 0, highlightLumDelta = 0;
 
   if (wheels) {
-    if (wheels.shadows.saturation > 0) {
+    if (wheels.shadows && wheels.shadows.saturation > 0) {
       const [r, g, b] = hslToRgb(wheels.shadows.hue, wheels.shadows.saturation / 100, 0.5);
       shadowTintR = (r - 128) / 128;
       shadowTintG = (g - 128) / 128;
       shadowTintB = (b - 128) / 128;
     }
-    if (wheels.highlights.saturation > 0) {
+    if (wheels.midtones && wheels.midtones.saturation > 0) {
+      const [r, g, b] = hslToRgb(wheels.midtones.hue, wheels.midtones.saturation / 100, 0.5);
+      midtoneTintR = (r - 128) / 128;
+      midtoneTintG = (g - 128) / 128;
+      midtoneTintB = (b - 128) / 128;
+    }
+    if (wheels.highlights && wheels.highlights.saturation > 0) {
       const [r, g, b] = hslToRgb(wheels.highlights.hue, wheels.highlights.saturation / 100, 0.5);
       highlightTintR = (r - 128) / 128;
       highlightTintG = (g - 128) / 128;
       highlightTintB = (b - 128) / 128;
     }
+
+    shadowLumDelta = ((wheels.shadows?.luminance || 0) / 100) * 50;
+    midtoneLumDelta = ((wheels.midtones?.luminance || 0) / 100) * 50;
+    highlightLumDelta = ((wheels.highlights?.luminance || 0) / 100) * 50;
   }
 
   // Histogram buckets
@@ -320,18 +462,42 @@ export function processImage(
       b = lum + (b - lum) * totalSat;
     }
 
-    // 8. Color Wheels Split Toning
+    // 8. Color Wheels Split Toning & 3-Way Luminance
+    const u = Math.max(0, Math.min(1, lum / 255));
+    const shadowWeight = Math.max(0, 1 - 2 * u);
+    const midtoneWeight = Math.sin(Math.PI * u);
+    const highlightWeight = Math.max(0, 2 * u - 1);
+
     if (shadowTintR !== 0 || shadowTintG !== 0 || shadowTintB !== 0) {
-      const shadowWeight = Math.max(0, 1 - lum / 128);
       r += shadowTintR * shadowWeight * 50;
       g += shadowTintG * shadowWeight * 50;
       b += shadowTintB * shadowWeight * 50;
     }
+    if (midtoneTintR !== 0 || midtoneTintG !== 0 || midtoneTintB !== 0) {
+      r += midtoneTintR * midtoneWeight * 50;
+      g += midtoneTintG * midtoneWeight * 50;
+      b += midtoneTintB * midtoneWeight * 50;
+    }
     if (highlightTintR !== 0 || highlightTintG !== 0 || highlightTintB !== 0) {
-      const highlightWeight = Math.max(0, (lum - 128) / 127);
       r += highlightTintR * highlightWeight * 50;
       g += highlightTintG * highlightWeight * 50;
       b += highlightTintB * highlightWeight * 50;
+    }
+
+    if (shadowLumDelta !== 0) {
+      r += shadowLumDelta * shadowWeight;
+      g += shadowLumDelta * shadowWeight;
+      b += shadowLumDelta * shadowWeight;
+    }
+    if (midtoneLumDelta !== 0) {
+      r += midtoneLumDelta * midtoneWeight;
+      g += midtoneLumDelta * midtoneWeight;
+      b += midtoneLumDelta * midtoneWeight;
+    }
+    if (highlightLumDelta !== 0) {
+      r += highlightLumDelta * highlightWeight;
+      g += highlightLumDelta * highlightWeight;
+      b += highlightLumDelta * highlightWeight;
     }
 
     // 9. Tone Curves LUT
@@ -394,9 +560,20 @@ export function processImage(
     }
   }
 
-  // 12. Vignette (Post-pass radial gradient)
+  // 12. Clarity (Local midtone contrast enhancement)
+  if (adjustments.clarity !== 0) {
+    applyClarity(data, canvas.width, canvas.height, adjustments.clarity);
+  }
+
+  // 13. Sharpen (Edge acutance convolution)
+  if (adjustments.sharpen > 0) {
+    applySharpen(data, canvas.width, canvas.height, adjustments.sharpen);
+  }
+
+  // Write pixel data back to canvas
   ctx.putImageData(imgData, 0, 0);
 
+  // 14. Vignette (Post-pass radial gradient)
   if (adjustments.vignette > 0) {
     const w = canvas.width;
     const h = canvas.height;
@@ -419,9 +596,8 @@ export function processImage(
     ctx.restore();
   }
 
-  // 13. Clarity / Sharpening / Blur
+  // 15. Canvas filter blur
   if (adjustments.blur > 0) {
-    // Note: Canvas filter blur
     const blurCanvas = document.createElement('canvas');
     blurCanvas.width = canvas.width;
     blurCanvas.height = canvas.height;

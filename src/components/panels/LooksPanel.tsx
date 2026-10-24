@@ -9,6 +9,8 @@ interface LooksPanelProps {
   onChangeIntensity: (intensity: number) => void;
   favorites: string[];
   onToggleFavorite: (presetId: string) => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 export const LooksPanel: React.FC<LooksPanelProps> = ({
@@ -18,6 +20,8 @@ export const LooksPanel: React.FC<LooksPanelProps> = ({
   onChangeIntensity,
   favorites,
   onToggleFavorite,
+  onInteractionStart,
+  onInteractionEnd,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
@@ -61,12 +65,16 @@ export const LooksPanel: React.FC<LooksPanelProps> = ({
             min="0"
             max="100"
             value={presetIntensity}
+            onPointerDown={() => onInteractionStart?.()}
+            onPointerUp={() => onInteractionEnd?.()}
+            onTouchStart={() => onInteractionStart?.()}
+            onTouchEnd={() => onInteractionEnd?.()}
             onChange={(e) => onChangeIntensity(parseInt(e.target.value, 10))}
-            className="flex-1 h-1.5 bg-surface-container-high rounded-full accent-primary"
+            className="flex-1 h-1.5 bg-surface-container-high rounded-full accent-primary cursor-pointer"
           />
           <button
             onClick={() => onSelectPreset(null)}
-            className="text-[10px] text-outline hover:text-primary px-2 py-0.5 rounded bg-surface-container-high font-semibold"
+            className="text-[10px] text-outline hover:text-primary px-2 py-0.5 rounded bg-surface-container-high font-semibold cursor-pointer"
             title="Reset to Unfiltered Original"
           >
             CLEAR

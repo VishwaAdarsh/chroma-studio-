@@ -14,8 +14,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearProjects,
 }) => {
   const [settings, setSettings] = useState<AppSettings>(StorageService.getSettings());
-  const [storageMB, setStorageMB] = useState<number>(StorageService.getEstimatedStorageMB());
+  const [storageMB, setStorageMB] = useState<number>(0.25);
   const [clearedNotice, setClearedNotice] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      StorageService.getEstimatedStorageMB().then(setStorageMB);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -25,9 +31,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     StorageService.saveSettings(updated);
   };
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
     if (window.confirm('Are you sure you want to clear local draft projects and cache?')) {
-      StorageService.clearCache();
+      await StorageService.clearCache();
       onClearProjects();
       setStorageMB(0);
       setClearedNotice(true);

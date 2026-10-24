@@ -7,6 +7,8 @@ interface AdjustPanelProps {
   onChange: (param: keyof AdjustmentParameters, value: number) => void;
   onResetParam: (param: keyof AdjustmentParameters) => void;
   onResetGroup: (group: 'tone' | 'color') => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 type AdjustParam =
@@ -27,6 +29,8 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({
   onChange,
   onResetParam,
   onResetGroup: _onResetGroup,
+  onInteractionStart,
+  onInteractionEnd,
 }) => {
   const [activeParam, setActiveParam] = useState<AdjustParam>('exposure');
 
@@ -61,6 +65,8 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({
         unit={currentConfig.unit}
         onChange={(val) => onChange(activeParam, val)}
         onReset={() => onResetParam(activeParam)}
+        onInteractionStart={onInteractionStart}
+        onInteractionEnd={onInteractionEnd}
       />
 
       {/* Parameter Switcher Pill Bar */}

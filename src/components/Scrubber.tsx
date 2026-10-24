@@ -9,6 +9,8 @@ interface ScrubberProps {
   unit?: string;
   onChange: (val: number) => void;
   onReset: () => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 export const Scrubber: React.FC<ScrubberProps> = ({
@@ -20,6 +22,8 @@ export const Scrubber: React.FC<ScrubberProps> = ({
   unit = '',
   onChange,
   onReset,
+  onInteractionStart,
+  onInteractionEnd,
 }) => {
   const percentage = ((value - min) / (max - min)) * 100;
   const zeroPercent = ((0 - min) / (max - min)) * 100;
@@ -33,6 +37,12 @@ export const Scrubber: React.FC<ScrubberProps> = ({
       : `${value.toFixed(step < 1 ? 2 : 0)}${unit}`;
 
   const hasChanged = Math.abs(value) > 0.001;
+
+  const handleResetWithHistory = () => {
+    onInteractionStart?.();
+    onReset();
+    onInteractionEnd?.();
+  };
 
   return (
     <div className="w-full bg-surface-container-low p-2.5 rounded-xl space-y-1.5 border border-outline-variant shadow-sm">
@@ -49,8 +59,8 @@ export const Scrubber: React.FC<ScrubberProps> = ({
         <div className="flex items-center gap-2">
           {hasChanged && (
             <button
-              onClick={onReset}
-              className="text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all"
+              onClick={handleResetWithHistory}
+              className="text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all cursor-pointer"
               title="Reset to 0"
             >
               <span className="material-symbols-outlined text-[12px]">refresh</span>
@@ -78,8 +88,22 @@ export const Scrubber: React.FC<ScrubberProps> = ({
           max={max}
           step={step}
           value={value}
+          onPointerDown={() => onInteractionStart?.()}
+          onPointerUp={() => onInteractionEnd?.()}
+          onTouchStart={() => onInteractionStart?.()}
+          onTouchEnd={() => onInteractionEnd?.()}
+          onKeyDown={(e) => {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+              onInteractionStart?.();
+            }
+          }}
+          onKeyUp={(e) => {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+              onInteractionEnd?.();
+            }
+          }}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          onDoubleClick={onReset}
+          onDoubleClick={handleResetWithHistory}
           className="w-full h-1.5 bg-surface-container-high rounded-full appearance-none cursor-pointer focus:outline-none z-10 transition-all"
           style={{
             background: `linear-gradient(to right, #ffe2de 0%, #ffe2de ${left}%, #bf0411 ${left}%, #e42b27 ${right}%, #ffe2de ${right}%, #ffe2de 100%)`,

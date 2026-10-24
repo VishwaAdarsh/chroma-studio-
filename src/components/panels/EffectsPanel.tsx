@@ -6,6 +6,8 @@ interface EffectsPanelProps {
   adjustments: AdjustmentParameters;
   onChange: (param: keyof AdjustmentParameters, value: number) => void;
   onResetParam: (param: keyof AdjustmentParameters) => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 type EffectParam = 'clarity' | 'sharpen' | 'blur' | 'vignette' | 'grain' | 'fade';
@@ -14,6 +16,8 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
   adjustments,
   onChange,
   onResetParam,
+  onInteractionStart,
+  onInteractionEnd,
 }) => {
   const [activeParam, setActiveParam] = useState<EffectParam>('vignette');
 
@@ -42,6 +46,8 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
         unit={currentConfig.unit}
         onChange={(val) => onChange(activeParam, val)}
         onReset={() => onResetParam(activeParam)}
+        onInteractionStart={onInteractionStart}
+        onInteractionEnd={onInteractionEnd}
       />
 
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
