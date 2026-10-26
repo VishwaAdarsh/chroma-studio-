@@ -519,6 +519,14 @@ export function App() {
           activeAspect={geometry.crop.aspectRatio}
           onAutoTone={handleMagicAutoTone}
           onOpenColorLab={() => setActiveTab('colorlab')}
+          isCropping={activeTab === 'crop'}
+          crop={geometry.crop}
+          onCropChange={(crop) => setGeometry((prev) => ({ ...prev, crop }))}
+          onCropInteractionStart={handleInteractionStart}
+          onCropInteractionEnd={handleInteractionEnd}
+          sourceDimensions={originalDimensions}
+          onZoomChange={setZoomLevel}
+          onResetZoom={() => setZoomLevel(1)}
         />
 
         {/* Active Tool Panel Container */}
@@ -553,10 +561,10 @@ export function App() {
           {activeTab === 'crop' && (
             <CropPanel
               geometry={geometry}
-              onChange={(geo) => {
-                commitImmediateHistory();
-                setGeometry(geo);
-              }}
+              sourceDimensions={originalDimensions}
+              onChange={(geo) => setGeometry(geo)}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
               onReset={() => {
                 commitImmediateHistory();
                 setGeometry(DEFAULT_GEOMETRY);
@@ -567,14 +575,13 @@ export function App() {
           {activeTab === 'curves' && (
             <ToneCurvesEditor
               curves={curves}
-              onChange={(c) => {
-                commitImmediateHistory();
-                setCurves(c);
-              }}
+              onChange={(c) => setCurves(c)}
               onReset={() => {
                 commitImmediateHistory();
                 setCurves(DEFAULT_CURVES);
               }}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
             />
           )}
 

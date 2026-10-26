@@ -174,6 +174,117 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 /**
+ * Applies 3-way color wheels split-toning and zone luminance to pixel buffer.
+ */
+export function applyColorWheels(data: Uint8ClampedArray, wheels: ColorWheels): void {
+  let shadowTintR = 0, shadowTintG = 0, shadowTintB = 0;
+  let midtoneTintR = 0, midtoneTintG = 0, midtoneTintB = 0;
+  let highlightTintR = 0, highlightTintG = 0, highlightTintB = 0;
+
+  if (wheels.shadows && wheels.shadows.saturation > 0) {
+    const [r, g, b] = hslToRgb(wheels.shadows.hue, wheels.shadows.saturation / 100, 0.5);
+    shadowTintR = (r - 128) / 128;
+    shadowTintG = (g - 128) / 128;
+    shadowTintB = (b - 128) / 128;
+  }
+  if (wheels.midtones && wheels.midtones.saturation > 0) {
+    const [r, g, b] = hslToRgb(wheels.midtones.hue, wheels.midtones.saturation / 100, 0.5);
+    midtoneTintR = (r - 128) / 128;
+    midtoneTintG = (g - 128) / 128;
+    midtoneTintB = (b - 128) / 128;
+  }
+  if (wheels.highlights && wheels.highlights.saturation > 0) {
+    const [r, g, b] = hslToRgb(wheels.highlights.hue, wheels.highlights.saturation / 100, 0.5);
+    highlightTintR = (r - 128) / 128;
+    highlightTintG = (g - 128) / 128;
+    highlightTintB = (b - 128) / 128;
+  }
+
+  const shadowLumDelta = ((wheels.shadows?.luminance || 0) / 100) * 50;
+  const midtoneLumDelta = ((wheels.midtones?.luminance || 0) / 100) * 50;
+  const highlightLumDelta = ((wheels.highlights?.luminance || 0) / 100) * 50;
+
+  const len = data.length;
+  for (let i = 0; i < len; i += 4) {
+    let r = data[i];
+    let g = data[i + 1];
+    let b = data[i + 2];
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+    const u = Math.max(0, Math.min(1, lum / 255));
+    const shadowWeight = Math.max(0, 1 - 2 * u);
+    const midtoneWeight = Math.sin(Math.PI * u);
+    const highlightWeight = Math.max(0, 2 * u - 1);
+
+    if (shadowTintR !== 0 || shadowTintG !== 0 || shadowTintB !== 0) {
+      r += shadowTintR * shadowWeight * 50;
+      g += shadowTintG * shadowWeight * 50;
+      b += shadowTintB * shadowWeight * 50;
+    }
+    if (midtoneTintR !== 0 || midtoneTintG !== 0 || midtoneTintB !== 0) {
+      r += midtoneTintR * midtoneWeight * 50;
+      g += midtoneTintG * midtoneWeight * 50;
+      b += midtoneTintB * midtoneWeight * 50;
+    }
+    if (highlightTintR !== 0 || highlightTintG !== 0 || highlightTintB !== 0) {
+      r += highlightTintR * highlightWeight * 50;
+      g += highlightTintG * highlightWeight * 50;
+      b += highlightTintB * highlightWeight * 50;
+    }
+
+    if (shadowLumDelta !== 0) {
+      r += shadowLumDelta * shadowWeight;
+      g += shadowLumDelta * shadowWeight;
+      b += shadowLumDelta * shadowWeight;
+    }
+    if (midtoneLumDelta !== 0) {
+      r += midtoneLumDelta * midtoneWeight;
+      g += midtoneLumDelta * midtoneWeight;
+      b += midtoneLumDelta * midtoneWeight;
+    }
+    if (highlightLumDelta !== 0) {
+      r += highlightLumDelta * highlightWeight;
+      g += highlightLumDelta * highlightWeight;
+      b += highlightLumDelta * highlightWeight;
+    }
+
+    data[i] = Math.max(0, Math.min(255, Math.round(r)));
+    data[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
+    data[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
+  }
+}
+
+/**
+ * Applies Tone Curves LUTs (RGB master, Red, Green, Blue) to pixel buffer.
+ */
+export function applyCurves(data: Uint8ClampedArray, curves: ToneCurves): void {
+  const rgbLUT = curves.rgb ? buildCurveLUT(curves.rgb) : null;
+  const redLUT = curves.red ? buildCurveLUT(curves.red) : null;
+  const greenLUT = curves.green ? buildCurveLUT(curves.green) : null;
+  const blueLUT = curves.blue ? buildCurveLUT(curves.blue) : null;
+
+  const len = data.length;
+  for (let i = 0; i < len; i += 4) {
+    let r = data[i];
+    let g = data[i + 1];
+    let b = data[i + 2];
+
+    if (rgbLUT) {
+      r = rgbLUT[r];
+      g = rgbLUT[g];
+      b = rgbLUT[b];
+    }
+    if (redLUT) r = redLUT[r];
+    if (greenLUT) g = greenLUT[g];
+    if (blueLUT) b = blueLUT[b];
+
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
+  }
+}
+
+/**
  * Fast 1D Separable Box Blur for Luminance channel
  */
 export function boxBlurLuminance(lum: Float32Array, w: number, h: number, radius: number): Float32Array {
@@ -332,21 +443,38 @@ export function processImage(
   const cropW = Math.max(1, Math.min(sourceWidth - cropX, crop.width * sourceWidth));
   const cropH = Math.max(1, Math.min(sourceHeight - cropY, crop.height * sourceHeight));
 
-  const isRotated90or270 = Math.abs(geometry.rotation % 180) === 90;
-  const targetW = Math.round((isRotated90or270 ? cropH : cropW) * exportScale);
-  const targetH = Math.round((isRotated90or270 ? cropW : cropH) * exportScale);
+  // Decompose rotation into orthogonal 90° step and fine-angle straightening
+  const totalRotation = ((geometry.rotation % 360) + 360) % 360;
+  const orthogonalStep = Math.round(totalRotation / 90) % 4; // 0, 1 (90°), 2 (180°), 3 (270°)
+  const fineAngleDeg = totalRotation - orthogonalStep * 90; // range [-45°, 45°]
+  const fineAngleRad = (fineAngleDeg * Math.PI) / 180;
+
+  const isOrthogonal90or270 = orthogonalStep === 1 || orthogonalStep === 3;
+  const targetW = Math.round((isOrthogonal90or270 ? cropH : cropW) * exportScale);
+  const targetH = Math.round((isOrthogonal90or270 ? cropW : cropH) * exportScale);
 
   canvas.width = Math.max(1, targetW);
   canvas.height = Math.max(1, targetH);
 
-  // 2. Apply Geometric Transformations (Crop, Rotate, Flip)
+  // 2. Apply Geometric Transformations (Crop, Rotate, Flip, Auto-Crop Straighten)
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate((geometry.rotation * Math.PI) / 180);
+  ctx.rotate((totalRotation * Math.PI) / 180);
   ctx.scale(geometry.flipH ? -1 : 1, geometry.flipV ? -1 : 1);
 
-  const drawW = (isRotated90or270 ? canvas.height : canvas.width);
-  const drawH = (isRotated90or270 ? canvas.width : canvas.height);
+  const baseDrawW = isOrthogonal90or270 ? canvas.height : canvas.width;
+  const baseDrawH = isOrthogonal90or270 ? canvas.width : canvas.height;
+
+  // Auto-crop scale factor to prevent transparent wedges at corners during fine rotation
+  let autoCropScale = 1;
+  if (Math.abs(fineAngleDeg) > 0.01) {
+    const absRad = Math.abs(fineAngleRad);
+    const aspect = Math.max(baseDrawW / baseDrawH, baseDrawH / baseDrawW);
+    autoCropScale = Math.cos(absRad) + Math.sin(absRad) * aspect;
+  }
+
+  const drawW = baseDrawW * autoCropScale;
+  const drawH = baseDrawH * autoCropScale;
 
   ctx.drawImage(
     sourceImage,

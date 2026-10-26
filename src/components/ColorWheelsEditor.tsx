@@ -34,6 +34,12 @@ export const ColorWheelsEditor: React.FC<ColorWheelsEditorProps> = ({
     });
   };
 
+  const handleResetActiveZone = () => {
+    onInteractionStart?.();
+    updateCurrent({ hue: 0, saturation: 0, luminance: 0 });
+    onInteractionEnd?.();
+  };
+
   // Convert hue and saturation into 2D polar coordinate offset
   const radius = 54; // wheel radius in pixels
   const satRatio = (current.saturation || 0) / 100;
@@ -79,6 +85,38 @@ export const ColorWheelsEditor: React.FC<ColorWheelsEditorProps> = ({
     }
   };
 
+  // Keyboard navigation for accessibility
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let deltaHue = 0;
+    let deltaSat = 0;
+    const step = e.shiftKey ? 10 : 2;
+
+    switch (e.key) {
+      case 'ArrowLeft':
+        deltaHue = e.shiftKey ? -15 : -5;
+        break;
+      case 'ArrowRight':
+        deltaHue = e.shiftKey ? 15 : 5;
+        break;
+      case 'ArrowUp':
+        deltaSat = step;
+        break;
+      case 'ArrowDown':
+        deltaSat = -step;
+        break;
+      default:
+        return;
+    }
+
+    e.preventDefault();
+    onInteractionStart?.();
+    let newHue = ((current.hue || 0) + deltaHue) % 360;
+    if (newHue < 0) newHue += 360;
+    const newSat = Math.max(0, Math.min(100, (current.saturation || 0) + deltaSat));
+    updateCurrent({ hue: newHue, saturation: newSat });
+    onInteractionEnd?.();
+  };
+
   const lumValue = current.luminance || 0;
   const lumPercentage = ((lumValue - (-100)) / (100 - (-100))) * 100;
   const lumZeroPercent = 50;
@@ -94,7 +132,7 @@ export const ColorWheelsEditor: React.FC<ColorWheelsEditorProps> = ({
             <button
               key={zone}
               onClick={() => setActiveZone(zone)}
-              className={`px-3 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-all ${
+              className={`px-3 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                 activeZone === zone
                   ? 'bg-surface-container-high text-primary shadow-xs font-bold'
                   : 'text-outline hover:text-on-surface'
@@ -104,24 +142,39 @@ export const ColorWheelsEditor: React.FC<ColorWheelsEditorProps> = ({
             </button>
           ))}
         </div>
-        <button
-          onClick={onReset}
-          className="text-[10px] text-outline hover:text-primary flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container-high border border-outline-variant font-semibold cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[13px]">refresh</span>
-          <span>RESET WHEELS</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleResetActiveZone}
+            className="text-[10px] text-outline hover:text-primary px-2 py-1 rounded bg-surface-container-high border border-outline-variant font-semibold cursor-pointer"
+            title={`Reset ${activeZone} wheel`}
+          >
+            RESET {activeZone.toUpperCase()}
+          </button>
+          <button
+            onClick={onReset}
+            className="text-[10px] text-outline hover:text-primary flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container-high border border-outline-variant font-semibold cursor-pointer"
+            title="Reset all color wheels"
+          >
+            <span className="material-symbols-outlined text-[13px]">refresh</span>
+            <span>ALL</span>
+          </button>
+        </div>
       </div>
 
-      {/* Interactive Radial Color Wheel with Continuous Pointer Dragging */}
+      {/* Interactive Radial Color Wheel with Continuous Pointer Dragging & Keyboard Navigation */}
       <div className="flex flex-col items-center justify-center py-2">
         <div
           ref={wheelRef}
+          tabIndex={0}
+          role="slider"
+          aria-label={`${activeZone} color wheel`}
+          aria-valuetext={`Hue ${current.hue} degrees, Saturation ${current.saturation} percent`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="relative w-[120px] h-[120px] rounded-full cursor-crosshair shadow-md border-2 border-white ring-1 ring-outline-variant select-none touch-none"
+          onKeyDown={handleKeyDown}
+          className="relative w-[120px] h-[120px] rounded-full cursor-crosshair shadow-md border-2 border-white ring-1 ring-outline-variant select-none touch-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           style={{
             background:
               'radial-gradient(circle closest-side, white 0%, transparent 100%), conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
