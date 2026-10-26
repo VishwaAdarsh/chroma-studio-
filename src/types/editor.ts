@@ -63,17 +63,36 @@ export interface GeometryState {
   flipV: boolean;
 }
 
-export interface Preset {
+export type TemplateCategory =
+  | 'All'
+  | 'Cinematic'
+  | 'Portrait'
+  | 'Vintage Film'
+  | 'Black & White'
+  | 'Golden Hour'
+  | 'Moody'
+  | 'Pastel'
+  | 'Travel'
+  | 'Food'
+  | 'Street Photography'
+  | 'Social Media';
+
+export interface PhotoTemplate {
   id: string;
   name: string;
-  category: 'Monochrome' | 'Vintage & Film' | 'Cinematic' | 'Aesthetic' | 'Portrait & Natural' | 'Landscape & Creative';
+  category: TemplateCategory;
   description: string;
+  tags: string[];
+  defaultIntensity: number; // 0 to 100 (default 100)
   parameters: Partial<AdjustmentParameters>;
   wheels?: Partial<ColorWheels>;
-  defaultIntensity: number; // 0 to 100 (default 100)
+  curves?: Partial<ToneCurves>;
   badge?: string;
   thumbnailGradient?: string;
+  isCustom?: boolean;
 }
+
+export type Preset = PhotoTemplate;
 
 export interface Project {
   id: string;

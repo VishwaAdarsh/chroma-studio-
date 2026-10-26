@@ -1,4 +1,4 @@
-import { Project } from '../types/editor';
+import { PhotoTemplate, Project } from '../types/editor';
 
 const DB_NAME = 'chroma_studio_db';
 const DB_VERSION = 1;
@@ -8,6 +8,7 @@ const STORE_IMAGES = 'images';
 const PROJECTS_STORAGE_KEY = 'chroma_studio_projects';
 const FAVORITES_STORAGE_KEY = 'chroma_studio_favorites';
 const SETTINGS_STORAGE_KEY = 'chroma_studio_settings';
+const CUSTOM_TEMPLATES_STORAGE_KEY = 'chroma_studio_custom_templates';
 
 export interface AppSettings {
   defaultFormat: 'jpeg' | 'png' | 'webp';
@@ -366,6 +367,54 @@ export class StorageService {
       return next;
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Custom templates management (persisted in localStorage as lightweight JSON array)
+   */
+  public static getCustomTemplates(): PhotoTemplate[] {
+    try {
+      if (typeof localStorage === 'undefined') return [];
+      const data = localStorage.getItem(CUSTOM_TEMPLATES_STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveCustomTemplate(template: PhotoTemplate): PhotoTemplate[] {
+    try {
+      const current = this.getCustomTemplates();
+      const existingIdx = current.findIndex((t) => t.id === template.id);
+      let updated: PhotoTemplate[];
+      if (existingIdx >= 0) {
+        updated = [...current];
+        updated[existingIdx] = template;
+      } else {
+        updated = [template, ...current];
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    } catch (e) {
+      console.error('Failed to save custom template', e);
+      return this.getCustomTemplates();
+    }
+  }
+
+  public static deleteCustomTemplate(templateId: string): PhotoTemplate[] {
+    try {
+      const current = this.getCustomTemplates();
+      const updated = current.filter((t) => t.id !== templateId);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    } catch (e) {
+      console.error('Failed to delete custom template', e);
+      return this.getCustomTemplates();
     }
   }
 

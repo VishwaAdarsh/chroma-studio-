@@ -189,31 +189,20 @@ export function App() {
         const canvas = canvasRef.current;
         if (!img || !canvas) return;
 
-        const activePreset = PRESETS.find((p) => p.id === activePresetId) || null;
-        const { adjustments: blendedAdj, wheels: presetWheels } = blendPresetAdjustments(
-          adjustments,
-          activePreset,
-          presetIntensity
-        );
+        const customPresets = StorageService.getCustomTemplates();
+        const activePreset =
+          PRESETS.find((p) => p.id === activePresetId) ||
+          customPresets.find((p) => p.id === activePresetId) ||
+          null;
 
-        // Merge manual wheels with preset wheels
-        const finalWheels: ColorWheels = {
-          shadows: {
-            hue: wheels.shadows.hue || presetWheels?.shadows.hue || 0,
-            saturation: Math.max(wheels.shadows.saturation, presetWheels?.shadows.saturation || 0),
-            luminance: wheels.shadows.luminance || presetWheels?.shadows.luminance || 0,
-          },
-          midtones: {
-            hue: wheels.midtones.hue || presetWheels?.midtones.hue || 0,
-            saturation: Math.max(wheels.midtones.saturation, presetWheels?.midtones.saturation || 0),
-            luminance: wheels.midtones.luminance || presetWheels?.midtones.luminance || 0,
-          },
-          highlights: {
-            hue: wheels.highlights.hue || presetWheels?.highlights.hue || 0,
-            saturation: Math.max(wheels.highlights.saturation, presetWheels?.highlights.saturation || 0),
-            luminance: wheels.highlights.luminance || presetWheels?.highlights.luminance || 0,
-          },
-        };
+        const { adjustments: blendedAdj, wheels: finalWheels, curves: finalCurves } =
+          blendPresetAdjustments(
+            adjustments,
+            activePreset,
+            presetIntensity,
+            wheels,
+            curves
+          );
 
         const result = processImage(
           img,
@@ -221,8 +210,8 @@ export function App() {
           img.naturalHeight || originalDimensions.height,
           blendedAdj,
           geometry,
-          curves,
-          finalWheels,
+          finalCurves || curves,
+          finalWheels || wheels,
           canvas
         );
 
@@ -412,30 +401,20 @@ export function App() {
     if (!imageElementRef.current) return;
     const img = imageElementRef.current;
 
-    const activePreset = PRESETS.find((p) => p.id === activePresetId) || null;
-    const { adjustments: blendedAdj, wheels: presetWheels } = blendPresetAdjustments(
-      adjustments,
-      activePreset,
-      presetIntensity
-    );
+    const customPresets = StorageService.getCustomTemplates();
+    const activePreset =
+      PRESETS.find((p) => p.id === activePresetId) ||
+      customPresets.find((p) => p.id === activePresetId) ||
+      null;
 
-    const exportWheels: ColorWheels = {
-      shadows: {
-        hue: wheels.shadows.hue || presetWheels?.shadows.hue || 0,
-        saturation: Math.max(wheels.shadows.saturation, presetWheels?.shadows.saturation || 0),
-        luminance: wheels.shadows.luminance || presetWheels?.shadows.luminance || 0,
-      },
-      midtones: {
-        hue: wheels.midtones.hue || presetWheels?.midtones.hue || 0,
-        saturation: Math.max(wheels.midtones.saturation, presetWheels?.midtones.saturation || 0),
-        luminance: wheels.midtones.luminance || presetWheels?.midtones.luminance || 0,
-      },
-      highlights: {
-        hue: wheels.highlights.hue || presetWheels?.highlights.hue || 0,
-        saturation: Math.max(wheels.highlights.saturation, presetWheels?.highlights.saturation || 0),
-        luminance: wheels.highlights.luminance || presetWheels?.highlights.luminance || 0,
-      },
-    };
+    const { adjustments: blendedAdj, wheels: exportWheels, curves: exportCurves } =
+      blendPresetAdjustments(
+        adjustments,
+        activePreset,
+        presetIntensity,
+        wheels,
+        curves
+      );
 
     // Render on offscreen canvas at requested scale
     const offscreen = document.createElement('canvas');
@@ -445,8 +424,8 @@ export function App() {
       img.naturalHeight || originalDimensions.height,
       blendedAdj,
       geometry,
-      curves,
-      exportWheels,
+      exportCurves || curves,
+      exportWheels || wheels,
       offscreen,
       settings.scale
     );
@@ -554,6 +533,9 @@ export function App() {
               onToggleFavorite={handleToggleFavorite}
               onInteractionStart={handleInteractionStart}
               onInteractionEnd={handleInteractionEnd}
+              currentAdjustments={adjustments}
+              currentWheels={wheels}
+              currentCurves={curves}
             />
           )}
 

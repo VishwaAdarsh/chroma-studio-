@@ -8,16 +8,45 @@ import {
   ToneCurves,
 } from '../types/editor';
 
+function clampAdjustmentParam(key: keyof AdjustmentParameters, value: number): number {
+  switch (key) {
+    case 'exposure':
+      return Math.max(-2, Math.min(2, value));
+    case 'hue':
+      return Math.max(-180, Math.min(180, value));
+    case 'blur':
+    case 'sharpen':
+    case 'vignette':
+    case 'grain':
+    case 'fade':
+      return Math.max(0, Math.min(100, value));
+    default:
+      return Math.max(-100, Math.min(100, value));
+  }
+}
+
 /**
- * Interpolates preset parameters with base adjustments according to preset intensity (0..100)
+ * Interpolates preset/template parameters, wheels, and curves with base adjustments
+ * according to template intensity (0..100).
+ * At intensity 0, returns the neutral base adjustments without template contributions.
  */
 export function blendPresetAdjustments(
   base: AdjustmentParameters,
   preset: Preset | null,
-  intensity: number
-): { adjustments: AdjustmentParameters; wheels?: ColorWheels } {
+  intensity: number,
+  baseWheels?: ColorWheels,
+  baseCurves?: ToneCurves
+): {
+  adjustments: AdjustmentParameters;
+  wheels?: ColorWheels;
+  curves?: ToneCurves;
+} {
   if (!preset || intensity === 0) {
-    return { adjustments: { ...base } };
+    return {
+      adjustments: { ...base },
+      wheels: baseWheels ? { ...baseWheels } : undefined,
+      curves: baseCurves ? { ...baseCurves } : undefined,
+    };
   }
 
   const factor = Math.max(0, Math.min(1, intensity / 100));
@@ -29,32 +58,59 @@ export function blendPresetAdjustments(
     const pVal = presetParams[paramKey];
     if (typeof pVal === 'number') {
       const bVal = base[paramKey] || 0;
-      blended[paramKey] = bVal + pVal * factor;
+      blended[paramKey] = clampAdjustmentParam(paramKey, bVal + pVal * factor);
     }
   }
 
-  let blendedWheels: ColorWheels | undefined = undefined;
+  // Blend Color Wheels
+  let blendedWheels: ColorWheels | undefined = baseWheels ? { ...baseWheels } : undefined;
   if (preset.wheels) {
+    const bw = baseWheels || {
+      shadows: { hue: 0, saturation: 0, luminance: 0 },
+      midtones: { hue: 0, saturation: 0, luminance: 0 },
+      highlights: { hue: 0, saturation: 0, luminance: 0 },
+    };
+
     blendedWheels = {
       shadows: {
-        hue: preset.wheels.shadows?.hue || 0,
-        saturation: (preset.wheels.shadows?.saturation || 0) * factor,
-        luminance: (preset.wheels.shadows?.luminance || 0) * factor,
+        hue: bw.shadows.saturation > 0 ? bw.shadows.hue : preset.wheels.shadows?.hue || 0,
+        saturation: Math.min(100, (bw.shadows.saturation || 0) + (preset.wheels.shadows?.saturation || 0) * factor),
+        luminance: Math.max(-100, Math.min(100, (bw.shadows.luminance || 0) + (preset.wheels.shadows?.luminance || 0) * factor)),
       },
       midtones: {
-        hue: preset.wheels.midtones?.hue || 0,
-        saturation: (preset.wheels.midtones?.saturation || 0) * factor,
-        luminance: (preset.wheels.midtones?.luminance || 0) * factor,
+        hue: bw.midtones.saturation > 0 ? bw.midtones.hue : preset.wheels.midtones?.hue || 0,
+        saturation: Math.min(100, (bw.midtones.saturation || 0) + (preset.wheels.midtones?.saturation || 0) * factor),
+        luminance: Math.max(-100, Math.min(100, (bw.midtones.luminance || 0) + (preset.wheels.midtones?.luminance || 0) * factor)),
       },
       highlights: {
-        hue: preset.wheels.highlights?.hue || 0,
-        saturation: (preset.wheels.highlights?.saturation || 0) * factor,
-        luminance: (preset.wheels.highlights?.luminance || 0) * factor,
+        hue: bw.highlights.saturation > 0 ? bw.highlights.hue : preset.wheels.highlights?.hue || 0,
+        saturation: Math.min(100, (bw.highlights.saturation || 0) + (preset.wheels.highlights?.saturation || 0) * factor),
+        luminance: Math.max(-100, Math.min(100, (bw.highlights.luminance || 0) + (preset.wheels.highlights?.luminance || 0) * factor)),
       },
     };
   }
 
-  return { adjustments: blended, wheels: blendedWheels };
+  // Blend Tone Curves
+  let blendedCurves: ToneCurves | undefined = baseCurves ? { ...baseCurves } : undefined;
+  if (preset.curves) {
+    const channels: (keyof ToneCurves)[] = ['rgb', 'red', 'green', 'blue'];
+    const resultCurves: Partial<ToneCurves> = baseCurves ? { ...baseCurves } : {};
+
+    channels.forEach((channel) => {
+      const templatePoints = preset.curves?.[channel];
+      if (templatePoints && templatePoints.length > 0) {
+        // Interpolate deflection from neutral diagonal (x = y)
+        resultCurves[channel] = templatePoints.map((pt) => ({
+          x: pt.x,
+          y: Math.max(0, Math.min(255, Math.round(pt.x + (pt.y - pt.x) * factor))),
+        }));
+      }
+    });
+
+    blendedCurves = resultCurves as ToneCurves;
+  }
+
+  return { adjustments: blended, wheels: blendedWheels, curves: blendedCurves };
 }
 
 /**
