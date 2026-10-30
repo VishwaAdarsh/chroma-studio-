@@ -1,8 +1,16 @@
 import React, { useRef, useState } from 'react';
-import { SAMPLE_IMAGES } from '../data/samples';
 import type { SampleImage } from '../data/samples';
 import type { Project } from '../types/editor';
+import type { ReadyMadeTemplate } from '../types/design';
 import { ChromaLogo } from './brand/ChromaLogo';
+import { HeroBanner } from './home/HeroBanner';
+import { WorkspaceCards } from './home/WorkspaceCards';
+import { TrendingTemplates } from './home/TrendingTemplates';
+import { RecentProjectsSection } from './home/RecentProjectsSection';
+import { UpgradeProCard } from './home/UpgradeProCard';
+import { ProfileBottomSheet } from './profile/ProfileBottomSheet';
+import { AppBottomNavigation, BottomNavTab } from './navigation/AppBottomNavigation';
+import { NavigationDrawer } from './navigation/NavigationDrawer';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HomeDashboardProps {
@@ -17,6 +25,7 @@ interface HomeDashboardProps {
   onOpenProjectsView: () => void;
   onOpenProfile: () => void;
   onOpenAuth: () => void;
+  onSelectTemplate?: (template: ReadyMadeTemplate) => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -30,12 +39,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenProjectsView,
   onOpenProfile,
   onOpenAuth,
+  onSelectTemplate,
   recentProjects,
 }) => {
   const { user, profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'templates' | 'collage' | 'carousel' | 'projects'>('home');
-  const [lookFilter, setLookFilter] = useState<string>('All');
+
+  // UI state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [currentBottomTab, setCurrentBottomTab] = useState<BottomNavTab>('home');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,49 +59,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     }
   };
 
-  const curatedLooks = [
-    {
-      id: 'look-cine-500t',
-      name: 'Cinematic 500T',
-      subtitle: 'Tungsten 3200K',
-      sampleId: 'sample-kyoto',
-      gradient: 'from-amber-400 via-rose-900 to-indigo-950',
-      category: 'Cinematic',
-    },
-    {
-      id: 'look-noir-400',
-      name: 'Noir Silver 400',
-      subtitle: 'Fine Grain +12',
-      sampleId: 'sample-brutalism',
-      gradient: 'from-zinc-300 via-gray-700 to-black',
-      category: 'Monochrome',
-    },
-    {
-      id: 'look-kodachrome',
-      name: 'Kodachrome 64',
-      subtitle: 'Warm Saturation',
-      sampleId: 'sample-dunes',
-      gradient: 'from-red-600 via-amber-500 to-yellow-600',
-      category: '35mm Vintage',
-    },
-    {
-      id: 'look-pastel',
-      name: 'Pastel Dream',
-      subtitle: 'Soft Glow Halation',
-      sampleId: 'sample-portrait',
-      gradient: 'from-pink-300 via-rose-300 to-orange-200',
-      category: 'Editorial',
-    },
-  ];
+  const handleBottomTabSelect = (tab: BottomNavTab) => {
+    setCurrentBottomTab(tab);
+    if (tab === 'editor') {
+      fileInputRef.current?.click();
+    } else if (tab === 'templates') {
+      onOpenTemplates();
+    } else if (tab === 'projects') {
+      onOpenProjectsView();
+    }
+  };
 
-  const filteredLooks =
-    lookFilter === 'All'
-      ? curatedLooks
-      : curatedLooks.filter((l) => l.category === lookFilter);
+  const displayName = profile?.full_name || (user ? user.email?.split('@')[0] : 'Ananya Sharma');
+  const avatarUrl =
+    profile?.avatar_url ||
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
 
   return (
-    <div className="min-h-screen w-full bg-surface text-on-surface flex flex-col justify-between pb-20 selection:bg-primary-container selection:text-white">
-      {/* Hidden File Input */}
+    <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white pb-20 sm:pb-8 font-sans">
+      {/* Hidden File Input for Photo Editor Trigger */}
       <input
         type="file"
         ref={fileInputRef}
@@ -95,476 +86,174 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         className="hidden"
       />
 
-      {/* Top Fixed Header */}
-      <header className="sticky top-0 w-full z-40 bg-surface/90 backdrop-blur-xl border-b border-outline-variant shadow-xs">
-        <div className="h-14 px-4 flex items-center justify-between max-w-5xl mx-auto">
-          {/* Logo & Branding */}
-          <ChromaLogo variant="header" size="md" />
-
-          {/* Right Tools */}
-          <div className="flex items-center gap-2">
+      {/* TOP APP BAR matching reference screenshot */}
+      <header className="sticky top-0 w-full z-40 bg-[#070B14]/90 backdrop-blur-2xl border-b border-white/10 shadow-lg">
+        <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-4 max-w-7xl mx-auto">
+          {/* Left: Mobile Drawer Trigger + Brand Logo */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <button
-              onClick={onOpenSettings}
-              className="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-outline-variant"
-              title="Settings & Privacy"
+              onClick={() => setIsDrawerOpen(true)}
+              className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white border border-white/10 transition-colors cursor-pointer"
+              title="Open Navigation Menu"
             >
-              <span className="material-symbols-outlined text-[18px]">settings</span>
+              <span className="material-symbols-outlined text-[20px]">menu</span>
             </button>
-            <button
-              onClick={user ? onOpenProfile : onOpenAuth}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 p-0.5 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center overflow-hidden"
-              title={user ? (profile?.full_name || 'My Profile') : 'Sign In / Register'}
-            >
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.full_name || 'Avatar'}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <div className="w-full h-full bg-surface-container-lowest flex items-center justify-center text-primary font-bold text-[12px] rounded-full">
-                  {user ? (
-                    profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : (user.email?.charAt(0).toUpperCase() || 'U')
-                  ) : (
-                    <span className="material-symbols-outlined text-[18px] text-purple-600">person</span>
-                  )}
+            <ChromaLogo variant="header" size="md" />
+          </div>
+
+          {/* Center: Global Search Bar on Desktop / Tablet */}
+          <div className="hidden md:flex items-center flex-1 max-w-md mx-4 relative">
+            <span className="material-symbols-outlined absolute left-3.5 text-[18px] text-[#94A3B8]">
+              search
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search templates, tools, projects..."
+              className="w-full h-10 pl-10 pr-16 rounded-xl bg-[#111827] border border-white/10 text-white placeholder-[#94A3B8] text-[13px] focus:outline-none focus:border-[#8B5CF6] transition-all"
+            />
+            <span className="absolute right-3 text-[10px] font-mono text-[#94A3B8] px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+              Ctrl K
+            </span>
+          </div>
+
+          {/* Right Tools: Notifications & User Avatar */}
+          <div className="flex items-center gap-3">
+            {/* Notifications Button */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                title="Notifications"
+              >
+                <span className="material-symbols-outlined text-[20px]">notifications</span>
+                {/* Active Notification Dot */}
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#EC4899] animate-pulse" />
+              </button>
+
+              {/* Notification Popup Dropdown */}
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-72 p-3 rounded-2xl bg-[#0D1424] border border-white/10 shadow-2xl z-50 text-[12px] flex flex-col gap-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                    <span className="font-bold text-white">Notifications</span>
+                    <button
+                      onClick={() => setNotificationsOpen(false)}
+                      className="text-[#94A3B8] hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/5 text-[#CBD5E1]">
+                    <span className="font-semibold text-white block">Welcome to Chroma Studio!</span>
+                    Explore new ready-made templates and 100% offline photo editing.
+                  </div>
                 </div>
               )}
+            </div>
+
+            {/* User Avatar with Green Online Dot */}
+            <button
+              onClick={() => setIsProfileSheetOpen(true)}
+              className="relative flex items-center gap-2 p-1 rounded-full hover:bg-white/5 transition-all cursor-pointer"
+              title="Open Account Menu"
+            >
+              <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-tr from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] p-0.5 shadow-md">
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              {/* Online Green Status Dot */}
+              <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070B14]" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Home Content */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-5 flex flex-col gap-6">
-        {/* Hero: Start Session / Import Photo */}
-        <div className="relative w-full rounded-2xl bg-gradient-to-br from-surface-container-highest via-surface-container to-surface-container-low p-5 shadow-lg overflow-hidden border border-outline-variant">
-          {/* Ambient Crimson Glows */}
-          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-secondary-container/20 blur-2xl pointer-events-none" />
+      {/* MAIN DASHBOARD CONTENT */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 flex flex-col gap-7">
+        {/* A. Hero Banner with Sunset Mountains & Search */}
+        <HeroBanner
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={() => {
+            if (searchQuery.trim()) onOpenTemplates();
+          }}
+        />
 
-          <div className="relative z-10 flex flex-col gap-3.5">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary font-mono">
-                  FIDELITY COLOR ENGINE
-                </span>
-                <h2 className="text-[22px] font-bold text-on-surface tracking-tight mt-0.5">
-                  Start Photo Session
-                </h2>
-              </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-11 h-11 rounded-xl bg-surface-container-lowest hover:bg-surface-container-high text-primary flex items-center justify-center shadow-md border border-outline-variant active:scale-95 transition-all"
-                title="Camera / Photo picker"
-              >
-                <span className="material-symbols-outlined text-[22px]">photo_camera</span>
-              </button>
-            </div>
+        {/* B. The 4 Creative Workspace Cards */}
+        <WorkspaceCards
+          onOpenEditor={() => fileInputRef.current?.click()}
+          onOpenTemplates={onOpenTemplates}
+          onOpenCollage={onOpenCollage}
+          onOpenCarousel={onOpenCarousel}
+        />
 
-            <p className="text-[12px] text-on-surface-variant leading-relaxed max-w-md">
-              Process uncompressed 14-bit sensory data with precision color grading, RGB curves, split toning, and non-destructive adjustments. 100% offline and private.
-            </p>
+        {/* C. Trending Templates Carousel */}
+        <TrendingTemplates
+          searchFilter={searchQuery}
+          onViewAll={onOpenTemplates}
+          onSelectTemplate={(template) => {
+            if (onSelectTemplate) {
+              onSelectTemplate(template);
+            } else {
+              onOpenTemplates();
+            }
+          }}
+        />
 
-            <div className="pt-1 flex flex-col gap-2.5">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-12 rounded-xl bg-primary-container text-white font-semibold text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-primary-container/25 hover:brightness-110 active:scale-[0.99] transition-all"
-              >
-                <span className="material-symbols-outlined text-[20px]">add_photo_alternate</span>
-                <span>Import Photo or RAW File</span>
-              </button>
+        {/* D. Recent Projects Section */}
+        <RecentProjectsSection
+          projects={recentProjects}
+          onOpenProject={onOpenProject}
+          onViewAllProjects={onOpenProjectsView}
+          onStartNew={() => fileInputRef.current?.click()}
+        />
 
-              {/* Format pills */}
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                  <span className="px-2 py-0.5 rounded-md bg-surface-container-lowest text-on-surface-variant font-mono text-[10px] border border-outline-variant">
-                    Apple ProRAW
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-surface-container-lowest text-on-surface-variant font-mono text-[10px] border border-outline-variant">
-                    DNG
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-surface-container-lowest text-on-surface-variant font-mono text-[10px] border border-outline-variant">
-                    PNG / JPEG
-                  </span>
-                </div>
-                <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
-                  16-bit
-                  <span className="material-symbols-outlined text-[13px]">bolt</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Creative Studios Hub (Templates, Collage, Carousel) */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Creative Workspaces</h3>
-            <span className="text-[10px] font-mono text-outline">Pro Graphics Suite</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Templates Studio */}
-            <div
-              onClick={onOpenTemplates}
-              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shadow-xs">
-                  <span className="material-symbols-outlined text-[22px]">dashboard_customize</span>
-                </div>
-                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
-                  20 Categories
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[14px] font-bold text-on-surface">Templates Studio</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Ready-made designs & 1-tap photo replace</p>
-              </div>
-            </div>
-
-            {/* Collage Studio */}
-            <div
-              onClick={onOpenCollage}
-              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-secondary/10 rounded-full blur-xl group-hover:bg-secondary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-secondary shadow-xs">
-                  <span className="material-symbols-outlined text-[22px]">grid_view</span>
-                </div>
-                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-secondary/10 text-secondary font-bold">
-                  2-12 Photos
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[14px] font-bold text-on-surface">Collage Studio</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Photo grids, magazines & freeform</p>
-              </div>
-            </div>
-
-            {/* Carousel Studio */}
-            <div
-              onClick={onOpenCarousel}
-              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-tertiary shadow-xs">
-                  <span className="material-symbols-outlined text-[22px]">view_carousel</span>
-                </div>
-                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary font-bold">
-                  Multi-Slide
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[14px] font-bold text-on-surface">Carousel Studio</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Instagram 4:5 stories & slide posts</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Sample Photos Shelf */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Sample Studio RAWs</h3>
-              <span className="text-[10px] font-mono text-primary bg-surface-container-highest px-2 py-0.5 rounded-full font-bold">
-                5 Included
-              </span>
-            </div>
-            <span className="text-[11px] text-outline">Instant load</span>
-          </div>
-
-          {/* Horizontal Scroll Showcase of Samples */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-            {SAMPLE_IMAGES.map((sample) => (
-              <div
-                key={sample.id}
-                onClick={() => onStartWithSample(sample)}
-                className="flex-shrink-0 w-60 rounded-xl bg-surface-container-lowest border border-outline-variant overflow-hidden flex flex-col shadow-sm group cursor-pointer active:scale-98 transition-all hover:border-primary"
-              >
-                <div className="relative w-full h-36 bg-surface-container-low overflow-hidden">
-                  <img
-                    src={sample.url}
-                    alt={sample.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/60 via-transparent to-transparent" />
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-md text-primary font-mono text-[10px] font-bold border border-outline-variant">
-                    {sample.category}
-                  </span>
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-md text-on-surface-variant font-mono text-[9px]">
-                    RAW
-                  </span>
-                </div>
-
-                <div className="p-3 flex flex-col gap-1">
-                  <h4 className="text-[13px] font-semibold text-on-surface group-hover:text-primary transition-colors truncate">
-                    {sample.title}
-                  </h4>
-                  <p className="text-[11px] text-on-surface-variant truncate">{sample.subtitle}</p>
-                  <div className="flex items-center justify-between font-mono text-[9px] text-outline pt-1">
-                    <span>{sample.meta}</span>
-                    <span className="text-primary font-bold">Load →</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Projects (if any saved) */}
-        {recentProjects.length > 0 && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Recent Projects</h3>
-                <span className="text-[10px] font-mono text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full font-bold">
-                  {recentProjects.length}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {recentProjects.map((proj) => (
-                <div
-                  key={proj.id}
-                  onClick={() => onOpenProject(proj)}
-                  className="rounded-xl bg-surface-container-lowest border border-outline-variant overflow-hidden flex flex-col p-2.5 gap-2 cursor-pointer hover:border-primary transition-all shadow-xs group"
-                >
-                  <div className="w-full aspect-[4/3] rounded-lg bg-surface-container-low overflow-hidden relative">
-                    {proj.imageSrc && (
-                      <img
-                        src={proj.imageSrc}
-                        alt={proj.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    )}
-                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-white/90 text-primary font-mono text-[9px] font-bold shadow-xs">
-                      {proj.activePresetId ? 'Graded' : 'Raw'}
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-[12px] font-semibold text-on-surface truncate">{proj.name}</h4>
-                    <span className="text-[10px] font-mono text-outline">
-                      {new Date(proj.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Curated Looks & Presets Carousel */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Curated Film Looks</h3>
-              <p className="text-[11px] text-on-surface-variant">One-tap analog film simulations & lab profiles</p>
-            </div>
-            <span className="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
-          </div>
-
-          {/* Filter chips */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
-            {['All', 'Cinematic', 'Monochrome', '35mm Vintage', 'Editorial'].map((f) => (
-              <button
-                key={f}
-                onClick={() => setLookFilter(f)}
-                className={`px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
-                  lookFilter === f
-                    ? 'bg-primary-container text-white font-semibold shadow-xs'
-                    : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high border border-outline-variant'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {/* Look Cards */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-            {filteredLooks.map((look) => {
-              const matchedSample = SAMPLE_IMAGES.find((s) => s.id === look.sampleId) || SAMPLE_IMAGES[0];
-              return (
-                <div
-                  key={look.id}
-                  onClick={() => onStartWithSample(matchedSample)}
-                  className="flex-shrink-0 w-36 rounded-xl bg-surface-container-lowest border border-outline-variant overflow-hidden flex flex-col group shadow-xs cursor-pointer hover:border-primary transition-all"
-                >
-                  <div className="relative w-full h-32 bg-surface-container-low overflow-hidden">
-                    <img
-                      src={matchedSample.url}
-                      alt={look.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 via-transparent to-transparent" />
-                    <span className="absolute bottom-1.5 left-2 text-[11px] text-on-surface font-semibold drop-shadow">
-                      {look.name}
-                    </span>
-                  </div>
-                  <div className="p-2 flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-outline">{look.subtitle}</span>
-                    <span className="material-symbols-outlined text-[16px] text-primary">
-                      play_arrow
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Master Collections 2x2 Grid */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Master Collections</h3>
-            <span className="text-[10px] font-mono text-outline">32 LUT Profiles</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 w-full">
-            <div
-              onClick={() => onStartWithSample(SAMPLE_IMAGES[0])}
-              className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex flex-col justify-between h-32 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-[18px]">movie_filter</span>
-                </div>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-surface-container-low text-on-surface-variant border border-outline-variant">
-                  7 LUTs
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[12px] font-semibold text-on-surface leading-tight">Cinematic 35mm</h4>
-                <p className="text-[10px] text-on-surface-variant mt-0.5">Hollywood Arri curves</p>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onStartWithSample(SAMPLE_IMAGES[1])}
-              className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex flex-col justify-between h-32 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-secondary/10 rounded-full blur-xl group-hover:bg-secondary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary">
-                  <span className="material-symbols-outlined text-[18px]">camera_roll</span>
-                </div>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-surface-container-low text-on-surface-variant border border-outline-variant">
-                  8 Packs
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[12px] font-semibold text-on-surface leading-tight">Analog 1980s</h4>
-                <p className="text-[10px] text-on-surface-variant mt-0.5">Halation & Bleach bypass</p>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onStartWithSample(SAMPLE_IMAGES[4])}
-              className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex flex-col justify-between h-32 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary">
-                  <span className="material-symbols-outlined text-[18px]">face</span>
-                </div>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-surface-container-low text-on-surface-variant border border-outline-variant">
-                  5 LUTs
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[12px] font-semibold text-on-surface leading-tight">Editorial Portrait</h4>
-                <p className="text-[10px] text-on-surface-variant mt-0.5">Calibrated skin tones</p>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onStartWithSample(SAMPLE_IMAGES[2])}
-              className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex flex-col justify-between h-32 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
-            >
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all" />
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-[18px]">contrast</span>
-                </div>
-                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-surface-container-low text-on-surface-variant border border-outline-variant">
-                  5 Profiles
-                </span>
-              </div>
-              <div>
-                <h4 className="text-[12px] font-semibold text-on-surface leading-tight">Dark Monochrome</h4>
-                <p className="text-[10px] text-on-surface-variant mt-0.5">Moody architectural blacks</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Engine Status & Cache Footnote Bar */}
-        <div className="rounded-xl bg-surface-container-lowest border border-outline-variant px-3.5 py-2.5 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono text-[10px] text-outline">Offline Engine Ready</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-[14px]">verified</span>
-            <span className="text-[10px] text-on-surface font-medium">Fidelity v4.2 • GPU Accel</span>
-          </div>
-        </div>
+        {/* E. Upgrade to Pro & Storage Section */}
+        <UpgradeProCard
+          onUpgradeClick={onOpenProfile}
+          storageUsedMB={2450} // 2.4 GB matching screenshot
+        />
       </main>
 
-      {/* Bottom Tab Navigation Bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/90 backdrop-blur-2xl border-t border-outline-variant">
-        <div className="h-14 max-w-lg mx-auto px-2 flex items-center justify-around">
-          <button
-            onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[48px] cursor-pointer ${
-              activeTab === 'home' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]">photo_camera</span>
-            <span className="text-[10px]">Editor</span>
-          </button>
+      {/* ANDROID NAVIGATION DRAWER */}
+      <NavigationDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activeRoute="home"
+        onNavigate={(route) => {
+          if (route === 'editor') fileInputRef.current?.click();
+          if (route === 'templates-browse') onOpenTemplates();
+          if (route === 'collage-browse') onOpenCollage();
+          if (route === 'carousel-browse') onOpenCarousel();
+          if (route === 'my-projects') onOpenProjectsView();
+          if (route === 'explore') onOpenTemplates();
+        }}
+        onOpenSettings={onOpenSettings}
+        onOpenUpgrade={onOpenProfile}
+      />
 
-          <button
-            onClick={onOpenTemplates}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-primary cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">dashboard_customize</span>
-            <span className="text-[10px]">Templates</span>
-          </button>
+      {/* ANDROID PROFILE BOTTOM SHEET / DROPDOWN */}
+      <ProfileBottomSheet
+        isOpen={isProfileSheetOpen}
+        onClose={() => setIsProfileSheetOpen(false)}
+        onOpenFullProfile={onOpenProfile}
+        onOpenPreferences={onOpenSettings}
+        onOpenAuth={onOpenAuth}
+      />
 
-          <button
-            onClick={onOpenCollage}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-secondary cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">grid_view</span>
-            <span className="text-[10px]">Collage</span>
-          </button>
-
-          <button
-            onClick={onOpenCarousel}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-tertiary cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">view_carousel</span>
-            <span className="text-[10px]">Carousel</span>
-          </button>
-
-          <button
-            onClick={onOpenProjectsView}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-primary cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">folder</span>
-            <span className="text-[10px]">Projects</span>
-          </button>
-        </div>
-      </nav>
+      {/* MOBILE BOTTOM NAVIGATION DOCK */}
+      <AppBottomNavigation
+        currentTab={currentBottomTab}
+        onSelectTab={handleBottomTabSelect}
+        onOpenDrawer={() => setIsDrawerOpen(true)}
+      />
     </div>
   );
 };

@@ -13,15 +13,14 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
   className = '',
   showTagline = true,
 }) => {
-  // Determine icon dimensions based on size
   const iconDimensions = {
-    sm: { box: 28, radius: 7 },
-    md: { box: 36, radius: 10 },
-    lg: { box: 48, radius: 14 },
-    xl: { box: 64, radius: 18 },
+    sm: { box: 26, radius: 7 },
+    md: { box: 34, radius: 9 },
+    lg: { box: 44, radius: 12 },
+    xl: { box: 60, radius: 16 },
   }[size];
 
-  // SVG Stylized C Aperture Icon
+  // Stylized Prismatic Delta Aperture Emblem matching reference screenshot
   const LogoIcon = (
     <svg
       viewBox="0 0 100 100"
@@ -33,48 +32,39 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
       aria-label="Chroma Studio Logo"
     >
       <defs>
-        <linearGradient id="cl-grad-primary" x1="10%" y1="0%" x2="90%" y2="100%">
-          <stop offset="0%" stopColor="#8B5CF6" />
-          <stop offset="25%" stopColor="#A855F7" />
-          <stop offset="50%" stopColor="#EC4899" />
-          <stop offset="75%" stopColor="#6366F1" />
+        <linearGradient id="prism-grad-main" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6366F1" />
+          <stop offset="35%" stopColor="#8B5CF6" />
+          <stop offset="70%" stopColor="#EC4899" />
           <stop offset="100%" stopColor="#F59E0B" />
         </linearGradient>
-        <linearGradient id="cl-grad-warm" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#EC4899" />
-          <stop offset="50%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#A855F7" />
+        <linearGradient id="prism-grad-top" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#8B5CF6" />
+          <stop offset="100%" stopColor="#38BDF8" />
         </linearGradient>
-        <linearGradient id="cl-grad-accent" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#6366F1" />
-          <stop offset="60%" stopColor="#8B5CF6" />
-          <stop offset="100%" stopColor="#EC4899" />
+        <linearGradient id="prism-grad-inner" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#EC4899" />
+          <stop offset="100%" stopColor="#F59E0B" />
         </linearGradient>
       </defs>
 
-      <rect width="100" height="100" rx={iconDimensions.radius * 2.2} fill="#0B0C10" />
-
-      <g transform="translate(50, 50)">
-        {/* Aperture Iris Blade 1 */}
-        <path
-          d="M 0 -36 C 22 -36 36 -20 36 0 C 36 6 34 11 31 16 L 16 7 C 20 2 20 -4 16 -12 C 12 -20 4 -22 -6 -20 L -12 -34 C -8 -35 -4 -36 0 -36 Z"
-          fill="url(#cl-grad-primary)"
-        />
-        {/* Main C-Shape Aperture Body */}
-        <path
-          d="M 0 -36 C -20 -36 -36 -20 -36 0 C -36 20 -20 36 0 36 C 14 36 26 28 32 17 L 18 10 C 14 17 6 22 -2 22 C -14 22 -22 14 -22 0 C -22 -14 -14 -22 -2 -22 C 2 -22 6 -20 9 -17 L 22 -27 C 16 -32 8 -36 0 -36 Z"
-          fill="url(#cl-grad-primary)"
-        />
-        {/* Bottom Flare Blade */}
-        <path
-          d="M 0 36 C 16 36 28 26 34 12 L 20 6 C 16 14 8 20 -1 20 C -7 20 -12 16 -16 11 L -28 21 C -20 30 -10 36 0 36 Z"
-          fill="url(#cl-grad-accent)"
-        />
-        {/* Inner Aperture Core */}
-        <circle cx="-1" cy="0" r="7" fill="#0B0C10" />
-        <circle cx="-1" cy="0" r="4.5" fill="url(#cl-grad-warm)" />
-        <circle cx="-3" cy="-2" r="1.5" fill="#FFFFFF" opacity="0.9" />
-      </g>
+      {/* Prismatic Rounded Aperture Polygon */}
+      <path
+        d="M 50 12 C 54 12 57 14 59 18 L 86 66 C 88 70 88 74 86 78 C 84 82 80 84 76 84 L 24 84 C 20 84 16 82 14 78 C 12 74 12 70 14 66 L 41 18 C 43 14 46 12 50 12 Z"
+        fill="url(#prism-grad-main)"
+      />
+      {/* Dynamic Inner Aperture Iris Blades */}
+      <path
+        d="M 50 24 L 74 72 L 40 72 Z"
+        fill="#070B14"
+        opacity="0.9"
+      />
+      <path
+        d="M 50 30 L 68 68 L 44 68 Z"
+        fill="url(#prism-grad-inner)"
+        opacity="0.95"
+      />
+      <circle cx="51" cy="54" r="5.5" fill="#FFFFFF" opacity="0.95" />
     </svg>
   );
 
@@ -84,15 +74,11 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
 
   if (variant === 'header') {
     return (
-      <div className={`flex items-center gap-2.5 ${className}`}>
+      <div className={`flex items-center gap-2.5 cursor-pointer ${className}`}>
         {LogoIcon}
         <div className="flex items-center gap-1.5 leading-none">
-          <span className="font-black text-[16px] tracking-tight text-on-surface">CHROMA</span>
-          <span className="font-semibold text-[15px] tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">
-            STUDIO
-          </span>
-          <span className="ml-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-white uppercase tracking-wider">
-            PRO
+          <span className="font-extrabold text-[17px] tracking-tight text-white font-sans">
+            Chroma Studio
           </span>
         </div>
       </div>
@@ -102,46 +88,31 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
   if (variant === 'auth') {
     return (
       <div className={`flex flex-col items-center text-center gap-3 ${className}`}>
-        <div className="p-1 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-500 shadow-xl shadow-purple-900/20">
+        <div className="p-1 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-xl shadow-purple-950/40">
           <svg
             viewBox="0 0 100 100"
-            width={68}
-            height={68}
+            width={64}
+            height={64}
             fill="none"
             className="rounded-[14px]"
             role="img"
             aria-label="Chroma Studio Emblem"
           >
-            <rect width="100" height="100" rx="16" fill="#0B0C10" />
-            <g transform="translate(50, 50)">
-              <path
-                d="M 0 -36 C 22 -36 36 -20 36 0 C 36 6 34 11 31 16 L 16 7 C 20 2 20 -4 16 -12 C 12 -20 4 -22 -6 -20 L -12 -34 C -8 -35 -4 -36 0 -36 Z"
-                fill="url(#cl-grad-primary)"
-              />
-              <path
-                d="M 0 -36 C -20 -36 -36 -20 -36 0 C -36 20 -20 36 0 36 C 14 36 26 28 32 17 L 18 10 C 14 17 6 22 -2 22 C -14 22 -22 14 -22 0 C -22 -14 -14 -22 -2 -22 C 2 -22 6 -20 9 -17 L 22 -27 C 16 -32 8 -36 0 -36 Z"
-                fill="url(#cl-grad-primary)"
-              />
-              <path
-                d="M 0 36 C 16 36 28 26 34 12 L 20 6 C 16 14 8 20 -1 20 C -7 20 -12 16 -16 11 L -28 21 C -20 30 -10 36 0 36 Z"
-                fill="url(#cl-grad-accent)"
-              />
-              <circle cx="-1" cy="0" r="7" fill="#0B0C10" />
-              <circle cx="-1" cy="0" r="4.5" fill="url(#cl-grad-warm)" />
-              <circle cx="-3" cy="-2" r="1.5" fill="#FFFFFF" opacity="0.9" />
-            </g>
+            <rect width="100" height="100" rx="14" fill="#070B14" />
+            <path
+              d="M 50 12 C 54 12 57 14 59 18 L 86 66 C 88 70 88 74 86 78 C 84 82 80 84 76 84 L 24 84 C 20 84 16 82 14 78 C 12 74 12 70 14 66 L 41 18 C 43 14 46 12 50 12 Z"
+              fill="url(#prism-grad-main)"
+            />
+            <path d="M 50 24 L 74 72 L 40 72 Z" fill="#070B14" opacity="0.9" />
+            <path d="M 50 30 L 68 68 L 44 68 Z" fill="url(#prism-grad-inner)" opacity="0.95" />
+            <circle cx="51" cy="54" r="5.5" fill="#FFFFFF" opacity="0.95" />
           </svg>
         </div>
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1.5 leading-tight">
-            <span className="font-black text-2xl tracking-tight text-on-surface">CHROMA</span>
-            <span className="font-light text-2xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">
-              STUDIO
-            </span>
-          </div>
+          <h2 className="font-black text-2xl tracking-tight text-white">Chroma Studio</h2>
           {showTagline && (
-            <p className="text-[11px] font-semibold tracking-[0.22em] text-on-surface-variant uppercase mt-1">
-              Edit • Design • Create • Inspire
+            <p className="text-[11px] font-semibold tracking-[0.2em] text-[#94A3B8] uppercase mt-1">
+              Create • Edit • Design • Inspire
             </p>
           )}
         </div>
@@ -154,15 +125,10 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
     <div className={`flex items-center gap-3 ${className}`}>
       {LogoIcon}
       <div className="flex flex-col">
-        <div className="flex items-center gap-1.5 leading-none">
-          <span className="font-black text-xl tracking-tight text-on-surface">CHROMA</span>
-          <span className="font-semibold text-xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">
-            STUDIO
-          </span>
-        </div>
+        <span className="font-black text-xl tracking-tight text-white">Chroma Studio</span>
         {showTagline && (
-          <span className="text-[9px] font-bold tracking-[0.2em] text-on-surface-variant uppercase mt-1">
-            Edit • Design • Create • Inspire
+          <span className="text-[9px] font-bold tracking-[0.2em] text-[#94A3B8] uppercase mt-0.5">
+            Create • Edit • Design • Inspire
           </span>
         )}
       </div>

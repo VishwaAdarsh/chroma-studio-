@@ -466,7 +466,7 @@ function ChromaStudioApp() {
 
     if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#fff8f7' }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#070B14' }).catch(() => {});
     }
 
     CapacitorApp.addListener('backButton', () => {
@@ -742,6 +742,11 @@ function ChromaStudioApp() {
             setAuthInitialMode('welcome');
             setIsAuthOpen(true);
           }}
+          onSelectTemplate={(template) => {
+            setActiveTemplate(template);
+            setActiveTemplateProject(undefined);
+            setCurrentView('template-edit');
+          }}
           recentProjects={recentProjects}
         />
         <SettingsModal
@@ -869,7 +874,7 @@ function ChromaStudioApp() {
 
   // 9. Existing Photo Editor View
   return (
-    <div className="min-h-screen w-full bg-surface text-on-surface flex flex-col justify-between selection:bg-primary-container selection:text-white overflow-hidden">
+    <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white overflow-hidden">
       {/* Top Header */}
       <Header
         projectName={projectName}

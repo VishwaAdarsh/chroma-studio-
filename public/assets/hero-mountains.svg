@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Sunset Sky Gradient -->
+    <linearGradient id="sky-sunset" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2D114D" />
+      <stop offset="35%" stop-color="#6B21A8" />
+      <stop offset="60%" stop-color="#BE185D" />
+      <stop offset="80%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+
+    <!-- Sun Glow -->
+    <radialGradient id="sun-glow" cx="62%" cy="65%" r="45%">
+      <stop offset="0%" stop-color="#FED7AA" stop-opacity="0.8" />
+      <stop offset="30%" stop-color="#F97316" stop-opacity="0.4" />
+      <stop offset="70%" stop-color="#BE185D" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Distant Mountains -->
+    <linearGradient id="mountain-far" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#831843" />
+      <stop offset="100%" stop-color="#311042" />
+    </linearGradient>
+
+    <!-- Mid Mountain Ridges with Sunset Alpenglow -->
+    <linearGradient id="mountain-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9D174D" />
+      <stop offset="40%" stop-color="#4C1D95" />
+      <stop offset="100%" stop-color="#1E1B4B" />
+    </linearGradient>
+
+    <!-- Foreground Mountain Peaks -->
+    <linearGradient id="mountain-near" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E1B4B" />
+      <stop offset="100%" stop-color="#070B14" />
+    </linearGradient>
+
+    <!-- Dramatic Dark Overlay for Text Readability -->
+    <linearGradient id="text-overlay" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#070B14" stop-opacity="0.85" />
+      <stop offset="55%" stop-color="#070B14" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#070B14" stop-opacity="0.3" />
+    </linearGradient>
+  </defs>
+
+  <!-- Sky Background -->
+  <rect width="1200" height="480" fill="url(#sky-sunset)" />
+  <rect width="1200" height="480" fill="url(#sun-glow)" />
+
+  <!-- Distant Layer: Far Alpine Peaks -->
+  <path d="M 0 320 L 80 260 L 160 300 L 250 220 L 340 280 L 440 190 L 520 250 L 620 160 L 710 240 L 810 170 L 920 270 L 1020 210 L 1120 270 L 1200 240 L 1200 480 L 0 480 Z" fill="url(#mountain-far)" opacity="0.85" />
+
+  <!-- Mid Ridge Layer: Dramatic Jagged Peaks -->
+  <path d="M 0 360 L 110 280 L 220 330 L 320 230 L 420 310 L 530 200 L 660 320 L 760 190 L 860 280 L 970 210 L 1090 310 L 1200 250 L 1200 480 L 0 480 Z" fill="url(#mountain-mid)" opacity="0.9" />
+
+  <!-- Foreground Mountains & Valley Silhouettes -->
+  <path d="M 0 400 L 140 320 L 270 380 L 390 290 L 510 370 L 640 280 L 770 360 L 890 270 L 1020 350 L 1140 300 L 1200 340 L 1200 480 L 0 480 Z" fill="url(#mountain-near)" />
+
+  <!-- Subtle Mist In The Valley -->
+  <ellipse cx="600" cy="390" rx="600" ry="60" fill="#BE185D" opacity="0.25" filter="blur(20px)" />
+
+  <!-- Dark readability overlay -->
+  <rect width="1200" height="480" fill="url(#text-overlay)" />
+</svg>

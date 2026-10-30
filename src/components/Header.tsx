@@ -50,13 +50,13 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-40 bg-surface/90 backdrop-blur-xl border-b border-outline-variant shadow-xs">
+    <header className="fixed top-0 inset-x-0 z-40 bg-[#070B14]/90 backdrop-blur-2xl border-b border-white/10 shadow-lg">
       <div className="h-14 px-3 flex items-center justify-between gap-2 max-w-5xl mx-auto">
         {/* Left: Back button & Project Title */}
         <div className="flex items-center gap-1.5 min-w-0">
           <button
             onClick={onBackToHome}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high active:scale-95 transition-all"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
             title="Back to Studio Home"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onBlur={handleFinishEditing}
                 onKeyDown={(e) => e.key === 'Enter' && handleFinishEditing()}
                 autoFocus
-                className="bg-surface-container-low text-on-surface px-1.5 py-0.5 rounded text-[13px] font-semibold border border-primary outline-none max-w-[140px]"
+                className="bg-[#111827] text-white px-2 py-0.5 rounded text-[13px] font-semibold border border-[#8B5CF6] outline-none max-w-[140px]"
               />
             ) : (
               <div
@@ -82,17 +82,17 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1 cursor-pointer group"
                 title="Click to rename project"
               >
-                <h1 className="text-[13px] font-semibold text-on-surface truncate max-w-[160px] group-hover:text-primary transition-colors">
+                <h1 className="text-[13px] font-semibold text-white truncate max-w-[160px] group-hover:text-[#8B5CF6] transition-colors">
                   {projectName}
                 </h1>
-                <span className="material-symbols-outlined text-[13px] text-outline opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="material-symbols-outlined text-[13px] text-[#94A3B8] opacity-0 group-hover:opacity-100 transition-opacity">
                   edit
                 </span>
               </div>
             )}
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] text-on-surface-variant font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse" />
+              <span className="text-[10px] text-[#94A3B8] font-mono">
                 {historyStepsCount} steps • DCI-P3 16-bit
               </span>
             </div>
@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Zoom toggle */}
           <button
             onClick={onToggleZoom}
-            className={`h-7 px-2 rounded-full text-[11px] font-mono flex items-center gap-1 active:scale-95 transition-all ${
+            className={`h-7 px-2 rounded-full text-[11px] font-mono flex items-center gap-1 active:scale-95 transition-all cursor-pointer ${
               zoomLevel > 1
-                ? 'bg-primary-container text-white border border-primary'
-                : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface border border-outline-variant'
+                ? 'bg-[#8B5CF6] text-white border border-[#8B5CF6]'
+                : 'bg-white/10 text-[#CBD5E1] hover:text-white border border-white/10'
             }`}
             title="Toggle Canvas Zoom"
           >
@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             title="Undo"
           >
             <span className="material-symbols-outlined text-[16px]">undo</span>
@@ -129,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             title="Redo"
           >
             <span className="material-symbols-outlined text-[16px]">redo</span>
@@ -145,10 +145,10 @@ export const Header: React.FC<HeaderProps> = ({
               onStartComparing();
             }}
             onTouchEnd={onStopComparing}
-            className={`w-7 h-7 rounded-full flex items-center justify-center active:scale-95 transition-all border ${
+            className={`w-7 h-7 rounded-full flex items-center justify-center active:scale-95 transition-all border cursor-pointer ${
               isComparing
-                ? 'bg-primary-container text-white border-primary shadow-[0_0_10px_rgba(228,43,39,0.4)]'
-                : 'bg-surface-container-high text-primary border-outline-variant hover:bg-surface-container-highest'
+                ? 'bg-[#8B5CF6] text-white border-[#8B5CF6] shadow-[0_0_10px_rgba(139,92,246,0.6)]'
+                : 'bg-white/10 text-[#8B5CF6] border-white/10 hover:bg-white/20'
             }`}
             title="Hold to view original image"
           >
@@ -158,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Settings */}
           <button
             onClick={onOpenSettings}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
             title="Settings & Privacy"
           >
             <span className="material-symbols-outlined text-[17px]">settings</span>
@@ -168,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
               title="My Account"
             >
               <span className="material-symbols-outlined text-[17px]">account_circle</span>
@@ -178,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Export CTA Button */}
           <button
             onClick={onOpenExport}
-            className="h-8 px-3 rounded-full bg-primary-container text-white flex items-center gap-1 font-semibold text-[11px] shadow-[0_0_12px_rgba(228,43,39,0.35)] hover:brightness-110 active:scale-95 transition-all ml-1"
+            className="h-8 px-3.5 rounded-full bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white flex items-center gap-1 font-bold text-[11px] shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:brightness-110 active:scale-95 transition-all ml-1 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[14px]">ios_share</span>
             <span>Export</span>

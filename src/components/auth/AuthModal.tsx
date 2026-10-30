@@ -56,7 +56,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Form Validation
   const validateEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
-  const validateUsername = (val: string) => /^[a-zA-Z0-9_]{3,20}$/.test(val.trim());
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,20 +94,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('Please enter your full name.');
       return;
     }
-    if (username.trim() && !validateUsername(username)) {
-      setErrorMsg('Username must be 3–20 characters (letters, numbers, underscores).');
-      return;
-    }
     if (!validateEmail(email)) {
       setErrorMsg('Please enter a valid email address.');
       return;
     }
     if (password.length < 6) {
       setErrorMsg('Password must be at least 6 characters long.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
       return;
     }
     if (!agreeTerms) {
@@ -197,205 +188,202 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleContinueAsGuest = () => {
-    setGuestMode(true);
-    onClose();
+  const handleAppleAuth = () => {
+    setErrorMsg('Apple Sign-In is not currently enabled for this project.');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md transition-opacity">
-      <div className="relative w-full max-w-md bg-surface-container-lowest border border-outline-variant rounded-3xl shadow-2xl overflow-hidden flex flex-col text-on-surface animate-in fade-in zoom-in-95 duration-200">
-        {/* Ambient Top Glow */}
-        <div className="absolute -top-16 inset-x-0 h-32 bg-gradient-to-b from-purple-500/20 via-pink-500/10 to-transparent pointer-events-none" />
-
-        {/* Close Button (if not forced in recovery mode) */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md transition-opacity">
+      <div className="relative w-full max-w-4xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row text-white animate-in fade-in zoom-in-95 duration-200 max-h-[92vh]">
+        {/* Close Button */}
         {!isRecoveryMode && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center border border-outline-variant transition-colors"
+            className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-[#94A3B8] hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
             title="Close"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            ✕
           </button>
         )}
 
-        {/* Modal Body */}
-        <div className="p-6 sm:p-7 flex flex-col gap-5 overflow-y-auto max-h-[88vh]">
-          {/* Logo Header */}
-          <ChromaLogo variant="auth" size="lg" showTagline={mode === 'welcome'} />
+        {/* LEFT COLUMN: Visual Showcase matching reference screenshot */}
+        <div className="hidden md:flex flex-1 relative bg-[#070B14] p-8 flex-col justify-between overflow-hidden">
+          {/* Background artistic image */}
+          <img
+            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80"
+            alt="Creative Portrait"
+            className="absolute inset-0 w-full h-full object-cover opacity-60"
+          />
+          {/* Vibrant gradient overlay matching screenshot */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#070B14] via-[#070B14]/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#6366F1]/30 via-transparent to-[#EC4899]/30 pointer-events-none" />
 
+          {/* Top Brand Logo */}
+          <div className="relative z-10">
+            <ChromaLogo variant="header" size="md" />
+          </div>
+
+          {/* Bottom Showcase Copy */}
+          <div className="relative z-10 flex flex-col gap-3">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight leading-tight">
+              {mode === 'signup' ? 'Turn Ideas Into Stunning Creations' : 'Edit Design Create Your Way'}
+            </h2>
+            <p className="text-[13px] text-[#CBD5E1] font-normal leading-relaxed">
+              Professional tools. Ready-made templates. Stunning results.
+            </p>
+            {/* Pagination Dots */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="w-2 h-2 rounded-full bg-[#8B5CF6]" />
+              <span className="w-2 h-2 rounded-full bg-white/20" />
+              <span className="w-2 h-2 rounded-full bg-white/20" />
+              <span className="w-2 h-2 rounded-full bg-white/20" />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Interactive Form matching reference screenshot */}
+        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center overflow-y-auto max-h-[88vh]">
           {/* Feedback Banners */}
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-error-container/40 border border-error/30 text-on-error-container text-[12px] flex items-start gap-2">
-              <span className="material-symbols-outlined text-[18px] text-error shrink-0">error</span>
+            <div className="p-3 mb-4 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-[12px] flex items-start gap-2">
+              <span className="material-symbols-outlined text-[18px] text-red-400 shrink-0">error</span>
               <p className="leading-snug">{errorMsg}</p>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-900 text-[12px] flex items-start gap-2">
-              <span className="material-symbols-outlined text-[18px] text-emerald-600 shrink-0">check_circle</span>
+            <div className="p-3 mb-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-[12px] flex items-start gap-2">
+              <span className="material-symbols-outlined text-[18px] text-emerald-400 shrink-0">check_circle</span>
               <p className="leading-snug">{successMsg}</p>
             </div>
           )}
 
-          {/* 1. WELCOME SCREEN */}
-          {mode === 'welcome' && (
-            <div className="flex flex-col gap-4 text-center mt-1">
-              <p className="text-[13px] text-on-surface-variant leading-relaxed">
-                Professional photo editing, one-tap visual templates, collages, and carousel design with offline-first speed and cloud profile synchronization.
-              </p>
-
-              <div className="flex flex-col gap-2.5 mt-2">
-                <button
-                  onClick={() => {
-                    setMode('signup');
-                    setErrorMsg(null);
-                  }}
-                  className="w-full h-11 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-bold text-[13px] shadow-lg shadow-purple-900/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">person_add</span>
-                  Create Chroma Account
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMode('signin');
-                    setErrorMsg(null);
-                  }}
-                  className="w-full h-11 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant font-semibold text-[13px] text-on-surface active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">login</span>
-                  Sign In to Existing Account
-                </button>
-
-                <div className="relative my-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-outline-variant" />
-                  </div>
-                  <div className="relative flex justify-center text-[10px] uppercase font-bold text-on-surface-variant bg-surface-container-lowest px-2">
-                    or continue offline
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleContinueAsGuest}
-                  className="w-full h-10 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-medium text-[12px] transition-colors border border-outline-variant"
-                >
-                  Continue as Guest (Offline Mode)
-                </button>
+          {/* 1. SIGN IN SCREEN */}
+          {(mode === 'signin' || mode === 'welcome') && (
+            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
+              <div className="flex flex-col items-center text-center gap-1 mb-1">
+                <ChromaLogo variant="icon" size="md" />
+                <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
+                  Welcome Back
+                </h3>
+                <p className="text-[12px] text-[#94A3B8]">
+                  Sign in to continue your creative journey
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* 2. SIGN IN SCREEN */}
-          {mode === 'signin' && (
-            <form onSubmit={handleSignIn} className="flex flex-col gap-3.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[18px] font-bold text-on-surface">Sign In</h3>
+              {/* Social Login Buttons */}
+              <div className="flex flex-col gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setMode('welcome')}
-                  className="text-[11px] text-primary hover:underline font-semibold"
+                  onClick={handleGoogleAuth}
+                  className="w-full h-10 rounded-xl bg-[#172033] hover:bg-[#1E293B] text-white font-semibold text-[13px] border border-white/10 flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
                 >
-                  Back
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAppleAuth}
+                  className="w-full h-10 rounded-xl bg-[#172033] hover:bg-[#1E293B] text-white font-semibold text-[13px] border border-white/10 flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">phone_iphone</span>
+                  <span>Continue with Apple</span>
                 </button>
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Email Address
-                </label>
+              {/* Or Divider */}
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-[11px] text-[#94A3B8] bg-[#0D1424] px-2 uppercase font-medium">
+                  or
+                </div>
+              </div>
+
+              {/* Email Input */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  mail
+                </span>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  placeholder="Email address"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
                 />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('forgot_password');
-                      setErrorMsg(null);
-                    }}
-                    className="text-[11px] text-primary hover:underline"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full h-10 pl-3 pr-10 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-2.5 text-on-surface-variant hover:text-on-surface"
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
-                </div>
+              {/* Password Input */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  lock
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
               </div>
 
+              {/* Forgot Password Link */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMode('forgot_password')}
+                  className="text-[11px] text-[#94A3B8] hover:text-[#8B5CF6] transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {/* Gradient Sign In CTA */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 mt-1 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-bold text-[13px] shadow-md shadow-purple-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
                 ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">login</span>
-                    Sign In
-                  </>
+                  'Sign In'
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={handleGoogleAuth}
-                className="w-full h-10 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-semibold text-[12px] border border-outline-variant flex items-center justify-center gap-2 transition-colors"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                Continue with Google
-              </button>
-
-              <div className="text-center text-[12px] text-on-surface-variant mt-2">
+              {/* Switch to Sign Up */}
+              <div className="text-center text-[12px] text-[#94A3B8] mt-1">
                 Don't have an account?{' '}
                 <button
                   type="button"
@@ -403,149 +391,165 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setMode('signup');
                     setErrorMsg(null);
                   }}
-                  className="text-primary font-bold hover:underline"
+                  className="text-[#8B5CF6] font-bold hover:underline ml-1"
                 >
-                  Create one now
+                  Create Account
                 </button>
               </div>
             </form>
           )}
 
-          {/* 3. SIGN UP SCREEN */}
+          {/* 2. CREATE ACCOUNT SCREEN */}
           {mode === 'signup' && (
-            <form onSubmit={handleSignUp} className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[18px] font-bold text-on-surface">Create Account</h3>
+            <form onSubmit={handleSignUp} className="flex flex-col gap-3.5">
+              <div className="flex flex-col items-center text-center gap-1 mb-1">
+                <ChromaLogo variant="icon" size="md" />
+                <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
+                  Create Your Account
+                </h3>
+                <p className="text-[12px] text-[#94A3B8]">
+                  Join thousands of creators and start designing
+                </p>
+              </div>
+
+              {/* Social Login Buttons */}
+              <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={() => setMode('welcome')}
-                  className="text-[11px] text-primary hover:underline font-semibold"
+                  onClick={handleGoogleAuth}
+                  className="w-full h-9 rounded-xl bg-[#172033] hover:bg-[#1E293B] text-white font-semibold text-[12px] border border-white/10 flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
                 >
-                  Back
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAppleAuth}
+                  className="w-full h-9 rounded-xl bg-[#172033] hover:bg-[#1E293B] text-white font-semibold text-[12px] border border-white/10 flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[17px]">phone_iphone</span>
+                  <span>Continue with Apple</span>
                 </button>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Full Name
-                </label>
+              {/* Or Divider */}
+              <div className="relative my-0.5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-[10px] text-[#94A3B8] bg-[#0D1424] px-2 uppercase font-medium">
+                  or
+                </div>
+              </div>
+
+              {/* Full Name */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  person
+                </span>
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Alex Rivera"
-                  className="w-full h-9 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  placeholder="Full name"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
                 />
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Username (optional)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-[13px] text-on-surface-variant">@</span>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                    placeholder="alex_creates"
-                    className="w-full h-9 pl-7 pr-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Email
-                </label>
+              {/* Email Address */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  mail
+                </span>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex@example.com"
-                  className="w-full h-9 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  placeholder="Email address"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                    Password
-                  </label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full h-9 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                    Confirm
-                  </label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full h-9 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                  />
-                </div>
+              {/* Password */}
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  lock
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showPassword}
-                    onChange={(e) => setShowPassword(e.target.checked)}
-                    className="rounded text-primary focus:ring-0"
-                  />
-                  <span>Show Passwords</span>
-                </label>
-              </div>
-
-              <label className="flex items-start gap-2 text-[11px] text-on-surface-variant cursor-pointer mt-1">
+              {/* Terms Checkbox */}
+              <label className="flex items-center gap-2 text-[11px] text-[#CBD5E1] cursor-pointer mt-1">
                 <input
                   type="checkbox"
                   checked={agreeTerms}
                   onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="rounded text-primary focus:ring-0 mt-0.5"
+                  className="rounded text-[#8B5CF6] focus:ring-0 bg-[#111827] border-white/20"
                 />
                 <span>
-                  I agree to the Chroma Studio Terms of Service and Privacy Policy.
+                  I agree to the <span className="underline">Terms of Service</span> and <span className="underline">Privacy Policy</span>
                 </span>
               </label>
 
+              {/* Gradient Submit CTA */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 mt-1 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-bold text-[13px] shadow-md shadow-purple-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-11 mt-1 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
                 ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
-                    Create Account
-                  </>
+                  'Create Account'
                 )}
               </button>
 
-              <div className="text-center text-[12px] text-on-surface-variant mt-1">
-                Already registered?{' '}
+              {/* Switch to Sign In */}
+              <div className="text-center text-[12px] text-[#94A3B8] mt-1">
+                Already have an account?{' '}
                 <button
                   type="button"
                   onClick={() => {
                     setMode('signin');
                     setErrorMsg(null);
                   }}
-                  className="text-primary font-bold hover:underline"
+                  className="text-[#8B5CF6] font-bold hover:underline ml-1"
                 >
                   Sign In
                 </button>
@@ -553,122 +557,92 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {/* 4. FORGOT PASSWORD SCREEN */}
+          {/* 3. FORGOT PASSWORD SCREEN */}
           {mode === 'forgot_password' && (
-            <form onSubmit={handleForgotPassword} className="flex flex-col gap-3.5">
+            <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-[18px] font-bold text-on-surface">Reset Password</h3>
+                <h3 className="text-lg font-bold text-white">Reset Password</h3>
                 <button
                   type="button"
                   onClick={() => setMode('signin')}
-                  className="text-[11px] text-primary hover:underline font-semibold"
+                  className="text-[11px] text-[#8B5CF6] hover:underline font-semibold"
                 >
                   Back to Sign In
                 </button>
               </div>
-
-              <p className="text-[12px] text-on-surface-variant">
-                Enter your account email to receive a secure password recovery link.
+              <p className="text-[12px] text-[#94A3B8]">
+                Enter your account email to receive a password recovery link.
               </p>
-
-              <div>
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Email Address
-                </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                  mail
+                </span>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6]"
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-[13px] shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-10 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-bold text-[13px] shadow-md hover:opacity-95"
               >
-                {loading ? (
-                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">forward_to_inbox</span>
-                    Send Recovery Link
-                  </>
-                )}
+                Send Recovery Link
               </button>
             </form>
           )}
 
-          {/* 5. RESET PASSWORD SCREEN (RECOVERY CALLBACK) */}
+          {/* 4. RESET PASSWORD (CALLBACK) */}
           {mode === 'reset_password' && (
-            <form onSubmit={handleResetPassword} className="flex flex-col gap-3.5">
-              <h3 className="text-[18px] font-bold text-on-surface">Set New Password</h3>
-              <p className="text-[12px] text-on-surface-variant">
-                Create a new secure password for your Chroma Studio account.
+            <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+              <h3 className="text-lg font-bold text-white">Set New Password</h3>
+              <p className="text-[12px] text-[#94A3B8]">
+                Choose a new secure password for your account.
               </p>
-
-              <div>
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  New Password
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-container-low border border-outline-variant text-[13px] text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                />
-              </div>
-
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="New Password (min. 6 chars)"
+                className="w-full h-10 px-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white"
+              />
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm New Password"
+                className="w-full h-10 px-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white"
+              />
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-bold text-[13px] shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-10 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-bold text-[13px] shadow-md"
               >
-                {loading ? (
-                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">lock_reset</span>
-                    Update Password & Sign In
-                  </>
-                )}
+                Update Password & Sign In
               </button>
             </form>
           )}
 
-          {/* 6. VERIFY EMAIL SCREEN */}
+          {/* 5. VERIFY EMAIL SCREEN */}
           {mode === 'verify_email' && (
-            <div className="flex flex-col items-center text-center gap-3 py-2">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
-                <span className="material-symbols-outlined text-[32px]">mark_email_read</span>
+            <div className="flex flex-col items-center text-center gap-3 py-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-[#8B5CF6] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[28px]">mark_email_read</span>
               </div>
-              <h3 className="text-[18px] font-bold text-on-surface">Verification Email Sent</h3>
-              <p className="text-[12px] text-on-surface-variant leading-relaxed">
-                We've sent a confirmation link to <span className="font-semibold text-on-surface">{email}</span>. Click the link in your email to activate your account.
+              <h3 className="text-lg font-bold text-white">Verification Link Sent</h3>
+              <p className="text-[12px] text-[#94A3B8] leading-relaxed">
+                We've sent an activation link to <span className="font-semibold text-white">{email}</span>. Click the link to complete sign up.
               </p>
               <button
                 type="button"
                 onClick={() => setMode('signin')}
-                className="w-full h-10 mt-3 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant font-semibold text-[13px] text-on-surface transition-all"
+                className="w-full h-10 mt-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-[13px] transition-colors"
               >
                 Proceed to Sign In
               </button>
