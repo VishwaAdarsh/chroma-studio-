@@ -12,6 +12,20 @@ import { LooksPanel } from './components/panels/LooksPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { ToneCurvesEditor } from './components/ToneCurvesEditor';
 import { ToolNavigation } from './components/ToolNavigation';
+import { TemplatesStudio } from './components/templates/TemplatesStudio';
+import { TemplateEditor } from './components/templates/TemplateEditor';
+import { CollageStudio } from './components/collage/CollageStudio';
+import { CollageEditor } from './components/collage/CollageEditor';
+import { CarouselStudio } from './components/carousel/CarouselStudio';
+import { CarouselEditor } from './components/carousel/CarouselEditor';
+import { MyProjectsView } from './components/projects/MyProjectsView';
+import type {
+  ReadyMadeTemplate,
+  DesignProject,
+  CollageProject,
+  CarouselProject,
+} from './types/design';
+import type { CarouselFamilyDefinition } from './data/carouselTemplates';
 import {
   DEFAULT_ADJUSTMENTS,
   DEFAULT_CURVES,
@@ -46,10 +60,28 @@ interface HistorySnapshot {
 
 export function App() {
   // Navigation & Modal States
-  const [currentView, setCurrentView] = useState<'home' | 'editor'>('home');
+  const [currentView, setCurrentView] = useState<
+    | 'home'
+    | 'editor'
+    | 'templates-browse'
+    | 'template-edit'
+    | 'collage-browse'
+    | 'collage-edit'
+    | 'carousel-browse'
+    | 'carousel-edit'
+    | 'my-projects'
+  >('home');
   const [activeTab, setActiveTab] = useState<EditorTab>('adjust');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Creative Studios Active Projects & Models
+  const [activeTemplate, setActiveTemplate] = useState<ReadyMadeTemplate | undefined>();
+  const [activeTemplateProject, setActiveTemplateProject] = useState<DesignProject | undefined>();
+  const [activeCollageImages, setActiveCollageImages] = useState<string[]>([]);
+  const [activeCollageProject, setActiveCollageProject] = useState<CollageProject | undefined>();
+  const [activeCarouselFamily, setActiveCarouselFamily] = useState<CarouselFamilyDefinition | undefined>();
+  const [activeCarouselProject, setActiveCarouselProject] = useState<CarouselProject | undefined>();
 
   // Active Project Data
   const [projectId, setProjectId] = useState<string>('proj-' + Date.now());
@@ -289,8 +321,28 @@ export function App() {
     reader.readAsDataURL(file);
   };
 
-  // Open an existing project
-  const handleOpenProject = (project: Project) => {
+  // Open an existing project (supports Photo, Template, Collage, and Carousel)
+  const handleOpenProject = (project: any) => {
+    if (project.type === 'template') {
+      setActiveTemplate(undefined);
+      setActiveTemplateProject(project as DesignProject);
+      setCurrentView('template-edit');
+      return;
+    }
+    if (project.type === 'collage') {
+      setActiveCollageImages([]);
+      setActiveCollageProject(project as CollageProject);
+      setCurrentView('collage-edit');
+      return;
+    }
+    if (project.type === 'carousel') {
+      setActiveCarouselFamily(undefined);
+      setActiveCarouselProject(project as CarouselProject);
+      setCurrentView('carousel-edit');
+      return;
+    }
+
+    // Default: Photo Editor project
     setProjectId(project.id);
     setProjectName(project.name);
     setAdjustments(project.adjustments);
@@ -461,7 +513,13 @@ export function App() {
     await saveCurrentProjectToStorage();
   };
 
-  // If in Home View, display HomeDashboard
+  // Refresh projects helper
+  const refreshProjectsList = async () => {
+    const projs = await StorageService.getProjects();
+    setRecentProjects(projs);
+  };
+
+  // 1. Home Dashboard View
   if (currentView === 'home') {
     return (
       <>
@@ -470,6 +528,10 @@ export function App() {
           onOpenProject={handleOpenProject}
           onImportFile={handleImportFile}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenTemplates={() => setCurrentView('templates-browse')}
+          onOpenCollage={() => setCurrentView('collage-browse')}
+          onOpenCarousel={() => setCurrentView('carousel-browse')}
+          onOpenProjectsView={() => setCurrentView('my-projects')}
           recentProjects={recentProjects}
         />
         <SettingsModal
@@ -481,7 +543,106 @@ export function App() {
     );
   }
 
-  // Otherwise, display Main Photo Editor View
+  // 2. Templates Studio Browsing View
+  if (currentView === 'templates-browse') {
+    return (
+      <TemplatesStudio
+        onBack={() => setCurrentView('home')}
+        onSelectTemplate={(template) => {
+          setActiveTemplate(template);
+          setActiveTemplateProject(undefined);
+          setCurrentView('template-edit');
+        }}
+      />
+    );
+  }
+
+  // 3. Template Customization Editor View
+  if (currentView === 'template-edit') {
+    return (
+      <TemplateEditor
+        initialTemplate={activeTemplate}
+        existingProject={activeTemplateProject}
+        onBack={() => {
+          refreshProjectsList();
+          setCurrentView('templates-browse');
+        }}
+        onSave={() => refreshProjectsList()}
+      />
+    );
+  }
+
+  // 4. Collage Studio Layout & Photo Picker View
+  if (currentView === 'collage-browse') {
+    return (
+      <CollageStudio
+        onBack={() => setCurrentView('home')}
+        onStartCollage={(images) => {
+          setActiveCollageImages(images);
+          setActiveCollageProject(undefined);
+          setCurrentView('collage-edit');
+        }}
+      />
+    );
+  }
+
+  // 5. Collage Editor View
+  if (currentView === 'collage-edit') {
+    return (
+      <CollageEditor
+        initialImages={activeCollageImages}
+        existingProject={activeCollageProject}
+        onBack={() => {
+          refreshProjectsList();
+          setCurrentView('collage-browse');
+        }}
+        onSave={() => refreshProjectsList()}
+      />
+    );
+  }
+
+  // 6. Carousel Studio Templates View
+  if (currentView === 'carousel-browse') {
+    return (
+      <CarouselStudio
+        onBack={() => setCurrentView('home')}
+        onSelectCarousel={(family) => {
+          setActiveCarouselFamily(family);
+          setActiveCarouselProject(undefined);
+          setCurrentView('carousel-edit');
+        }}
+      />
+    );
+  }
+
+  // 7. Carousel Multi-Slide Editor View
+  if (currentView === 'carousel-edit') {
+    return (
+      <CarouselEditor
+        initialFamily={activeCarouselFamily}
+        existingProject={activeCarouselProject}
+        onBack={() => {
+          refreshProjectsList();
+          setCurrentView('carousel-browse');
+        }}
+        onSave={() => refreshProjectsList()}
+      />
+    );
+  }
+
+  // 8. My Projects Unified Library View
+  if (currentView === 'my-projects') {
+    return (
+      <MyProjectsView
+        projects={recentProjects}
+        onOpenProject={handleOpenProject}
+        onRefresh={refreshProjectsList}
+        onBack={() => setCurrentView('home')}
+      />
+    );
+  }
+
+  // 9. Existing Photo Editor View
   return (
     <div className="min-h-screen w-full bg-surface text-on-surface flex flex-col justify-between selection:bg-primary-container selection:text-white overflow-hidden">
       {/* Top Header */}

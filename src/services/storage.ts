@@ -185,7 +185,10 @@ export class StorageService {
         const request = projectStore.getAll();
 
         request.onsuccess = () => {
-          const rawProjects: Project[] = request.result || [];
+          const rawProjects: Project[] = (request.result || []).map((p: any) => ({
+            ...p,
+            type: p.type || 'photo',
+          }));
           rawProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
           // Resolve image blobs for projects if needed
@@ -339,6 +342,32 @@ export class StorageService {
       this.cachedProjects = this.cachedProjects.filter((p) => p.id !== projectId);
     } catch (e) {
       console.error('Failed to delete project from IndexedDB', e);
+    }
+  }
+
+  /**
+   * Duplicates an existing project
+   */
+  public static async duplicateProject(projectId: string): Promise<Project | null> {
+    try {
+      const projects = await this.getProjects();
+      const existing = projects.find((p) => p.id === projectId);
+      if (!existing) return null;
+
+      const duplicated: Project = {
+        ...JSON.parse(JSON.stringify(existing)),
+        id: 'proj-' + Date.now(),
+        name: `${existing.name} (Copy)`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      const blob = await this.getImageBlob(projectId);
+      await this.saveProject(duplicated, blob || undefined);
+      return duplicated;
+    } catch (e) {
+      console.error('Failed to duplicate project', e);
+      return null;
     }
   }
 

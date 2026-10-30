@@ -97,6 +97,7 @@ export type Preset = PhotoTemplate;
 export interface Project {
   id: string;
   name: string;
+  type?: 'photo' | 'template' | 'collage' | 'carousel';
   imageSrc: string; // Base64 or object URL
   originalName: string;
   width: number;

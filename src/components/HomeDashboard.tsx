@@ -9,6 +9,10 @@ interface HomeDashboardProps {
   onImportFile: (file: File) => void;
   recentProjects: Project[];
   onOpenSettings: () => void;
+  onOpenTemplates: () => void;
+  onOpenCollage: () => void;
+  onOpenCarousel: () => void;
+  onOpenProjectsView: () => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -16,10 +20,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenProject,
   onImportFile,
   onOpenSettings,
+  onOpenTemplates,
+  onOpenCollage,
+  onOpenCarousel,
+  onOpenProjectsView,
   recentProjects,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'projects' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'templates' | 'collage' | 'carousel' | 'projects'>('home');
   const [lookFilter, setLookFilter] = useState<string>('All');
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,6 +177,76 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   16-bit
                   <span className="material-symbols-outlined text-[13px]">bolt</span>
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Creative Studios Hub (Templates, Collage, Carousel) */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[16px] font-bold text-on-surface tracking-tight">Creative Workspaces</h3>
+            <span className="text-[10px] font-mono text-outline">Pro Graphics Suite</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Templates Studio */}
+            <div
+              onClick={onOpenTemplates}
+              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
+            >
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all" />
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shadow-xs">
+                  <span className="material-symbols-outlined text-[22px]">dashboard_customize</span>
+                </div>
+                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                  20 Categories
+                </span>
+              </div>
+              <div>
+                <h4 className="text-[14px] font-bold text-on-surface">Templates Studio</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">Ready-made designs & 1-tap photo replace</p>
+              </div>
+            </div>
+
+            {/* Collage Studio */}
+            <div
+              onClick={onOpenCollage}
+              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
+            >
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-secondary/10 rounded-full blur-xl group-hover:bg-secondary/20 transition-all" />
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-secondary shadow-xs">
+                  <span className="material-symbols-outlined text-[22px]">grid_view</span>
+                </div>
+                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-secondary/10 text-secondary font-bold">
+                  2-12 Photos
+                </span>
+              </div>
+              <div>
+                <h4 className="text-[14px] font-bold text-on-surface">Collage Studio</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">Photo grids, magazines & freeform</p>
+              </div>
+            </div>
+
+            {/* Carousel Studio */}
+            <div
+              onClick={onOpenCarousel}
+              className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-4 flex flex-col justify-between h-36 shadow-xs relative overflow-hidden group hover:border-primary transition-all cursor-pointer"
+            >
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/20 transition-all" />
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-tertiary shadow-xs">
+                  <span className="material-symbols-outlined text-[22px]">view_carousel</span>
+                </div>
+                <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary font-bold">
+                  Multi-Slide
+                </span>
+              </div>
+              <div>
+                <h4 className="text-[14px] font-bold text-on-surface">Carousel Studio</h4>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">Instagram 4:5 stories & slide posts</p>
               </div>
             </div>
           </div>
@@ -428,33 +506,47 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
       {/* Bottom Tab Navigation Bar */}
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/90 backdrop-blur-2xl border-t border-outline-variant">
-        <div className="h-14 max-w-md mx-auto px-4 flex items-center justify-around">
+        <div className="h-14 max-w-lg mx-auto px-2 flex items-center justify-around">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] ${
-              activeTab === 'home' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[48px] cursor-pointer ${
+              activeTab === 'home' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <span className="material-symbols-outlined text-[20px]">photo_camera</span>
-            <span className="text-[10px] font-medium">Studio</span>
+            <span className="text-[10px]">Editor</span>
           </button>
 
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[56px] text-on-surface-variant hover:text-on-surface"
+            onClick={onOpenTemplates}
+            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-primary cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">add_circle</span>
-            <span className="text-[10px] font-medium">Import</span>
+            <span className="material-symbols-outlined text-[20px]">dashboard_customize</span>
+            <span className="text-[10px]">Templates</span>
           </button>
 
           <button
-            onClick={onOpenSettings}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] ${
-              activeTab === 'settings' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
+            onClick={onOpenCollage}
+            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-secondary cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-[10px] font-medium">Settings</span>
+            <span className="material-symbols-outlined text-[20px]">grid_view</span>
+            <span className="text-[10px]">Collage</span>
+          </button>
+
+          <button
+            onClick={onOpenCarousel}
+            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-tertiary cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">view_carousel</span>
+            <span className="text-[10px]">Carousel</span>
+          </button>
+
+          <button
+            onClick={onOpenProjectsView}
+            className="flex flex-col items-center justify-center gap-0.5 min-w-[48px] text-on-surface-variant hover:text-primary cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">folder</span>
+            <span className="text-[10px]">Projects</span>
           </button>
         </div>
       </nav>
