@@ -9,6 +9,22 @@ const PROJECTS_STORAGE_KEY = 'chroma_studio_projects';
 const FAVORITES_STORAGE_KEY = 'chroma_studio_favorites';
 const SETTINGS_STORAGE_KEY = 'chroma_studio_settings';
 const CUSTOM_TEMPLATES_STORAGE_KEY = 'chroma_studio_custom_templates';
+const AUTOSAVE_SESSION_STORAGE_KEY = 'chroma_studio_autosave_session';
+
+export interface AutosaveSession {
+  timestamp: number;
+  view: string;
+  projectId: string;
+  projectName: string;
+  imageSrc?: string;
+  originalDimensions?: { width: number; height: number };
+  adjustments?: any;
+  geometry?: any;
+  curves?: any;
+  wheels?: any;
+  activePresetId?: string | null;
+  presetIntensity?: number;
+}
 
 export interface AppSettings {
   defaultFormat: 'jpeg' | 'png' | 'webp';
@@ -508,6 +524,45 @@ export class StorageService {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(PROJECTS_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Autosave session state to localStorage to recover from crashes / interruptions
+   */
+  public static saveAutosaveSession(session: AutosaveSession): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(AUTOSAVE_SESSION_STORAGE_KEY, JSON.stringify(session));
+    } catch (e) {
+      console.warn('Autosave session write error', e);
+    }
+  }
+
+  public static getAutosaveSession(): AutosaveSession | null {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const raw = localStorage.getItem(AUTOSAVE_SESSION_STORAGE_KEY);
+      if (!raw) return null;
+      const session = JSON.parse(raw) as AutosaveSession;
+      // Expire session if older than 24 hours
+      if (Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
+        this.clearAutosaveSession();
+        return null;
+      }
+      return session;
+    } catch {
+      return null;
+    }
+  }
+
+  public static clearAutosaveSession(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(AUTOSAVE_SESSION_STORAGE_KEY);
       }
     } catch {
       // ignore

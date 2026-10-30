@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { CanvasView } from './components/CanvasView';
 import { ColorPaletteAssistant } from './components/ColorPaletteAssistant';
 import { ColorWheelsEditor } from './components/ColorWheelsEditor';
@@ -35,7 +38,7 @@ import {
 import { PRESETS } from './data/presets';
 import { SAMPLE_IMAGES, SampleImage } from './data/samples';
 import { blendPresetAdjustments, processImage } from './engine/pipeline';
-import { StorageService } from './services/storage';
+import { AutosaveSession, StorageService } from './services/storage';
 import {
   AdjustmentParameters,
   ColorWheels,
@@ -120,6 +123,37 @@ export function App() {
       mounted = false;
     };
   }, []);
+
+  // Check for recoverable unsaved session
+  const [recoverableSession, setRecoverableSession] = useState<AutosaveSession | null>(null);
+
+  useEffect(() => {
+    const session = StorageService.getAutosaveSession();
+    if (session && session.view === 'editor' && session.imageSrc) {
+      setRecoverableSession(session);
+    }
+  }, []);
+
+  const handleRestoreSession = () => {
+    if (!recoverableSession) return;
+    setProjectId(recoverableSession.projectId);
+    setProjectName(recoverableSession.projectName);
+    if (recoverableSession.adjustments) setAdjustments(recoverableSession.adjustments);
+    if (recoverableSession.geometry) setGeometry(recoverableSession.geometry);
+    if (recoverableSession.curves) setCurves(recoverableSession.curves);
+    if (recoverableSession.wheels) setWheels(recoverableSession.wheels);
+    if (recoverableSession.activePresetId !== undefined) setActivePresetId(recoverableSession.activePresetId);
+    if (recoverableSession.presetIntensity !== undefined) setPresetIntensity(recoverableSession.presetIntensity);
+    if (recoverableSession.originalDimensions) setOriginalDimensions(recoverableSession.originalDimensions);
+
+    loadImage(recoverableSession.imageSrc!, recoverableSession.projectName);
+    setRecoverableSession(null);
+  };
+
+  const handleDismissSession = () => {
+    StorageService.clearAutosaveSession();
+    setRecoverableSession(null);
+  };
 
   // Pipeline Output
   const [histogram, setHistogram] = useState<HistogramData | null>(null);
@@ -236,6 +270,14 @@ export function App() {
             curves
           );
 
+        // Responsive interactive preview scaling: avoid allocating massive pixel buffers on scrub
+        const maxPreviewDim = 1440;
+        const naturalMax = Math.max(
+          img.naturalWidth || originalDimensions.width,
+          img.naturalHeight || originalDimensions.height
+        );
+        const previewScale = naturalMax > maxPreviewDim ? maxPreviewDim / naturalMax : 1;
+
         const result = processImage(
           img,
           img.naturalWidth || originalDimensions.width,
@@ -244,7 +286,8 @@ export function App() {
           geometry,
           finalCurves || curves,
           finalWheels || wheels,
-          canvas
+          canvas,
+          previewScale
         );
 
         setHistogram(result.histogram);
@@ -283,6 +326,9 @@ export function App() {
       if (title) setProjectName(title);
       setCurrentView('editor');
     };
+    img.onerror = () => {
+      alert(`Could not load image: "${title || 'Selected file'}". Please check file permissions or try another photograph.`);
+    };
     img.src = src;
   };
 
@@ -302,6 +348,22 @@ export function App() {
 
   // Handlers for importing user photo
   const handleImportFile = (file: File) => {
+    // Security & file validation
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.dng', '.raw', '.heic', '.heif'];
+    const fileNameLower = file.name.toLowerCase();
+    const hasValidExt = validExtensions.some((ext) => fileNameLower.endsWith(ext));
+    const hasValidMime = file.type.startsWith('image/') || file.type === '';
+
+    if (!hasValidExt && !hasValidMime) {
+      alert(`Unsupported file format: "${file.name}". Please import a JPG, PNG, WebP, DNG or RAW photograph.`);
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      alert(`File size too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum supported size is 100MB.`);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const src = e.target?.result as string;
@@ -317,6 +379,9 @@ export function App() {
         setHistoryFuture([]);
         loadImage(src, file.name);
       }
+    };
+    reader.onerror = () => {
+      alert(`Failed to read "${file.name}". Please verify the file is readable and try again.`);
     };
     reader.readAsDataURL(file);
   };
@@ -380,6 +445,101 @@ export function App() {
     const updated = await StorageService.getProjects();
     setRecentProjects(updated);
   };
+
+  // Android Back Button & System Navigation Lifecycle
+  useEffect(() => {
+    let removeListener: (() => void) | undefined;
+
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#fff8f7' }).catch(() => {});
+    }
+
+    CapacitorApp.addListener('backButton', () => {
+      if (isExportOpen) {
+        setIsExportOpen(false);
+      } else if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+      } else if (currentView === 'editor') {
+        saveCurrentProjectToStorage();
+        StorageService.clearAutosaveSession();
+        setCurrentView('home');
+      } else if (
+        currentView === 'template-edit' ||
+        currentView === 'collage-edit' ||
+        currentView === 'carousel-edit'
+      ) {
+        if (currentView === 'template-edit') setCurrentView('templates-browse');
+        if (currentView === 'collage-edit') setCurrentView('collage-browse');
+        if (currentView === 'carousel-edit') setCurrentView('carousel-browse');
+      } else if (
+        currentView === 'templates-browse' ||
+        currentView === 'collage-browse' ||
+        currentView === 'carousel-browse' ||
+        currentView === 'my-projects'
+      ) {
+        setCurrentView('home');
+      } else if (currentView === 'home') {
+        CapacitorApp.exitApp();
+      }
+    }).then((handle) => {
+      removeListener = () => handle.remove();
+    });
+
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, [
+    isExportOpen,
+    isSettingsOpen,
+    currentView,
+    projectId,
+    projectName,
+    imageSrc,
+    originalDimensions,
+    adjustments,
+    activePresetId,
+    presetIntensity,
+    geometry,
+    curves,
+    wheels,
+  ]);
+
+  // Periodic autosave for active photo editor sessions
+  useEffect(() => {
+    if (currentView !== 'editor' || !imageSrc) return;
+
+    const timer = setTimeout(() => {
+      StorageService.saveAutosaveSession({
+        timestamp: Date.now(),
+        view: 'editor',
+        projectId,
+        projectName,
+        imageSrc,
+        originalDimensions,
+        adjustments,
+        geometry,
+        curves,
+        wheels,
+        activePresetId,
+        presetIntensity,
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    currentView,
+    imageSrc,
+    projectId,
+    projectName,
+    originalDimensions,
+    adjustments,
+    geometry,
+    curves,
+    wheels,
+    activePresetId,
+    presetIntensity,
+  ]);
 
   // Adjustment Change Handlers
   const handleAdjustmentChange = (param: keyof AdjustmentParameters, value: number) => {
@@ -523,6 +683,33 @@ export function App() {
   if (currentView === 'home') {
     return (
       <>
+        {recoverableSession && (
+          <div className="fixed top-16 inset-x-4 z-50 max-w-lg mx-auto bg-surface-container-high border-2 border-primary text-on-surface p-3.5 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-primary text-[22px]">history</span>
+              <div>
+                <h4 className="text-[12px] font-bold text-on-surface leading-tight">Recover Previous Session?</h4>
+                <p className="text-[10px] text-on-surface-variant">
+                  {recoverableSession.projectName} from {new Date(recoverableSession.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleDismissSession}
+                className="px-2.5 py-1 text-[11px] font-semibold text-outline hover:text-on-surface cursor-pointer"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={handleRestoreSession}
+                className="px-3 py-1 bg-primary text-white text-[11px] font-bold rounded-lg shadow-sm hover:brightness-110 cursor-pointer"
+              >
+                Restore
+              </button>
+            </div>
+          </div>
+        )}
         <HomeDashboard
           onStartWithSample={handleStartWithSample}
           onOpenProject={handleOpenProject}

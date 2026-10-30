@@ -415,6 +415,40 @@ export function applySharpen(
 }
 
 /**
+ * Constrains massive dimensions (e.g. 48MP+ or > 8192px) to prevent mobile canvas allocation OOM
+ */
+export function constrainDimensions(
+  width: number,
+  height: number,
+  maxDimension: number = 8192,
+  maxPixels: number = 48_000_000
+): { width: number; height: number; scaled: boolean } {
+  if (width <= 0 || height <= 0) return { width: 1, height: 1, scaled: false };
+
+  let w = width;
+  let h = height;
+  let scaled = false;
+
+  // 1. Constrain max single dimension
+  if (w > maxDimension || h > maxDimension) {
+    const scale = maxDimension / Math.max(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+    scaled = true;
+  }
+
+  // 2. Constrain max total pixel buffer area
+  if (w * h > maxPixels) {
+    const scale = Math.sqrt(maxPixels / (w * h));
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+    scaled = true;
+  }
+
+  return { width: Math.max(1, w), height: Math.max(1, h), scaled };
+}
+
+/**
  * Main rendering pipeline
  */
 export function processImage(
@@ -450,11 +484,16 @@ export function processImage(
   const fineAngleRad = (fineAngleDeg * Math.PI) / 180;
 
   const isOrthogonal90or270 = orthogonalStep === 1 || orthogonalStep === 3;
-  const targetW = Math.round((isOrthogonal90or270 ? cropH : cropW) * exportScale);
-  const targetH = Math.round((isOrthogonal90or270 ? cropW : cropH) * exportScale);
+  const rawTargetW = Math.round((isOrthogonal90or270 ? cropH : cropW) * exportScale);
+  const rawTargetH = Math.round((isOrthogonal90or270 ? cropW : cropH) * exportScale);
 
-  canvas.width = Math.max(1, targetW);
-  canvas.height = Math.max(1, targetH);
+  // Safeguard memory: clamp against OOM on mobile hardware
+  const constrained = constrainDimensions(rawTargetW, rawTargetH);
+  const targetW = constrained.width;
+  const targetH = constrained.height;
+
+  canvas.width = targetW;
+  canvas.height = targetH;
 
   // 2. Apply Geometric Transformations (Crop, Rotate, Flip, Auto-Crop Straighten)
   ctx.save();
