@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <defs>
+    <linearGradient id="fav-chroma-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="30%" stop-color="#EC4899" />
+      <stop offset="70%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <linearGradient id="fav-warm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="#0B0C10" />
+  <g transform="translate(24, 24) scale(0.55)">
+    <path d="M 0 -36 C 22 -36 36 -20 36 0 C 36 6 34 11 31 16 L 16 7 C 20 2 20 -4 16 -12 C 12 -20 4 -22 -6 -20 L -12 -34 C -8 -35 -4 -36 0 -36 Z" 
+          fill="url(#fav-chroma-grad)" />
+    <path d="M 0 -36 C -20 -36 -36 -20 -36 0 C -36 20 -20 36 0 36 C 14 36 26 28 32 17 L 18 10 C 14 17 6 22 -2 22 C -14 22 -22 14 -22 0 C -22 -14 -14 -22 -2 -22 C 2 -22 6 -20 9 -17 L 22 -27 C 16 -32 8 -36 0 -36 Z" 
+          fill="url(#fav-chroma-grad)" />
+    <circle cx="-1" cy="0" r="7" fill="#0B0C10" />
+    <circle cx="-1" cy="0" r="4.5" fill="url(#fav-warm)" />
+  </g>
+</svg>

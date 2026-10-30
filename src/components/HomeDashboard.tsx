@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { SAMPLE_IMAGES } from '../data/samples';
 import type { SampleImage } from '../data/samples';
 import type { Project } from '../types/editor';
+import { ChromaLogo } from './brand/ChromaLogo';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HomeDashboardProps {
   onStartWithSample: (sample: SampleImage) => void;
@@ -13,6 +15,8 @@ interface HomeDashboardProps {
   onOpenCollage: () => void;
   onOpenCarousel: () => void;
   onOpenProjectsView: () => void;
+  onOpenProfile: () => void;
+  onOpenAuth: () => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -24,8 +28,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenCollage,
   onOpenCarousel,
   onOpenProjectsView,
+  onOpenProfile,
+  onOpenAuth,
   recentProjects,
 }) => {
+  const { user, profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'templates' | 'collage' | 'carousel' | 'projects'>('home');
   const [lookFilter, setLookFilter] = useState<string>('All');
@@ -92,30 +99,38 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       <header className="sticky top-0 w-full z-40 bg-surface/90 backdrop-blur-xl border-b border-outline-variant shadow-xs">
         <div className="h-14 px-4 flex items-center justify-between max-w-5xl mx-auto">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-container to-secondary p-0.5 flex items-center justify-center shadow-md shadow-primary-container/20">
-              <span className="material-symbols-outlined text-[20px] text-white">tune</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-[16px] tracking-tight text-on-surface">CHROMA</span>
-              <span className="text-[9px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
-                PRO
-              </span>
-            </div>
-          </div>
+          <ChromaLogo variant="header" size="md" />
 
           {/* Right Tools */}
           <div className="flex items-center gap-2">
             <button
               onClick={onOpenSettings}
               className="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-outline-variant"
-              title="Settings"
+              title="Settings & Privacy"
             >
               <span className="material-symbols-outlined text-[18px]">settings</span>
             </button>
-            <div className="w-9 h-9 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-[12px] shadow-sm">
-              <span>CS</span>
-            </div>
+            <button
+              onClick={user ? onOpenProfile : onOpenAuth}
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 p-0.5 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center overflow-hidden"
+              title={user ? (profile?.full_name || 'My Profile') : 'Sign In / Register'}
+            >
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.full_name || 'Avatar'}
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <div className="w-full h-full bg-surface-container-lowest flex items-center justify-center text-primary font-bold text-[12px] rounded-full">
+                  {user ? (
+                    profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : (user.email?.charAt(0).toUpperCase() || 'U')
+                  ) : (
+                    <span className="material-symbols-outlined text-[18px] text-purple-600">person</span>
+                  )}
+                </div>
+              )}
+            </button>
           </div>
         </div>
       </header>

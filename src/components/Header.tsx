@@ -10,6 +10,7 @@ interface HeaderProps {
   onRedo: () => void;
   onOpenExport: () => void;
   onOpenSettings: () => void;
+  onOpenProfile?: () => void;
   isComparing: boolean;
   onStartComparing: () => void;
   onStopComparing: () => void;
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRedo,
   onOpenExport,
   onOpenSettings,
+  onOpenProfile,
   isComparing,
   onStartComparing,
   onStopComparing,
@@ -161,6 +163,17 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[17px]">settings</span>
           </button>
+
+          {/* User Profile */}
+          {onOpenProfile && (
+            <button
+              onClick={onOpenProfile}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all"
+              title="My Account"
+            >
+              <span className="material-symbols-outlined text-[17px]">account_circle</span>
+            </button>
+          )}
 
           {/* Export CTA Button */}
           <button

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none">
+  <defs>
+    <linearGradient id="chroma-grad-primary" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="25%" stop-color="#A855F7" />
+      <stop offset="50%" stop-color="#EC4899" />
+      <stop offset="75%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <linearGradient id="chroma-grad-accent" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="60%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+    <linearGradient id="chroma-grad-warm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#A855F7" />
+    </linearGradient>
+    <filter id="chroma-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base / Dark Aperture Well -->
+  <rect width="100" height="100" rx="24" fill="#0B0C10" />
+  
+  <!-- Outer Aperture Ring & Stylized Letter C -->
+  <!-- Sweeping C-contour with Photography Aperture Blades -->
+  <g transform="translate(50, 50)">
+    <!-- Aperture Blade 1 - Top Arch -->
+    <path d="M 0 -36 C 22 -36 36 -20 36 0 C 36 6 34 11 31 16 L 16 7 C 20 2 20 -4 16 -12 C 12 -20 4 -22 -6 -20 L -12 -34 C -8 -35 -4 -36 0 -36 Z" 
+          fill="url(#chroma-grad-primary)" />
+
+    <!-- Aperture Blade 2 - Core C Outer Body -->
+    <path d="M 0 -36 C -20 -36 -36 -20 -36 0 C -36 20 -20 36 0 36 C 14 36 26 28 32 17 L 18 10 C 14 17 6 22 -2 22 C -14 22 -22 14 -22 0 C -22 -14 -14 -22 -2 -22 C 2 -22 6 -20 9 -17 L 22 -27 C 16 -32 8 -36 0 -36 Z" 
+          fill="url(#chroma-grad-primary)" />
+
+    <!-- Aperture Blade 3 - Inner Lens Iris Sweeps (Creating C Opening) -->
+    <path d="M -6 -20 C 4 -22 12 -20 16 -12 L 5 -5 C 2 -9 -3 -10 -8 -9 Z" 
+          fill="url(#chroma-grad-warm)" opacity="0.9" />
+
+    <!-- Aperture Blade 4 - Bottom Iris Wing -->
+    <path d="M 0 36 C 16 36 28 26 34 12 L 20 6 C 16 14 8 20 -1 20 C -7 20 -12 16 -16 11 L -28 21 C -20 30 -10 36 0 36 Z" 
+          fill="url(#chroma-grad-accent)" />
+
+    <!-- Central Lens Pupil Glow (Off-center to define C aperture) -->
+    <circle cx="-1" cy="0" r="7" fill="#0B0C10" />
+    <circle cx="-1" cy="0" r="4.5" fill="url(#chroma-grad-warm)" />
+    <circle cx="-3" cy="-2" r="1.5" fill="#FFFFFF" opacity="0.85" />
+  </g>
+</svg>

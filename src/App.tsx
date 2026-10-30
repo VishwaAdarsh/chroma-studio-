@@ -22,6 +22,9 @@ import { CollageEditor } from './components/collage/CollageEditor';
 import { CarouselStudio } from './components/carousel/CarouselStudio';
 import { CarouselEditor } from './components/carousel/CarouselEditor';
 import { MyProjectsView } from './components/projects/MyProjectsView';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthModal, AuthViewMode } from './components/auth/AuthModal';
+import { ProfileModal } from './components/profile/ProfileModal';
 import type {
   ReadyMadeTemplate,
   DesignProject,
@@ -61,7 +64,8 @@ interface HistorySnapshot {
   wheels: ColorWheels;
 }
 
-export function App() {
+function ChromaStudioApp() {
+  const { user, isGuest, isRecoveryMode } = useAuth();
   // Navigation & Modal States
   const [currentView, setCurrentView] = useState<
     | 'home'
@@ -77,6 +81,16 @@ export function App() {
   const [activeTab, setActiveTab] = useState<EditorTab>('adjust');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<AuthViewMode>('welcome');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  useEffect(() => {
+    if (isRecoveryMode) {
+      setAuthInitialMode('reset_password');
+      setIsAuthOpen(true);
+    }
+  }, [isRecoveryMode]);
 
   // Creative Studios Active Projects & Models
   const [activeTemplate, setActiveTemplate] = useState<ReadyMadeTemplate | undefined>();
@@ -456,7 +470,11 @@ export function App() {
     }
 
     CapacitorApp.addListener('backButton', () => {
-      if (isExportOpen) {
+      if (isAuthOpen) {
+        setIsAuthOpen(false);
+      } else if (isProfileOpen) {
+        setIsProfileOpen(false);
+      } else if (isExportOpen) {
         setIsExportOpen(false);
       } else if (isSettingsOpen) {
         setIsSettingsOpen(false);
@@ -719,12 +737,32 @@ export function App() {
           onOpenCollage={() => setCurrentView('collage-browse')}
           onOpenCarousel={() => setCurrentView('carousel-browse')}
           onOpenProjectsView={() => setCurrentView('my-projects')}
+          onOpenProfile={() => setIsProfileOpen(true)}
+          onOpenAuth={() => {
+            setAuthInitialMode('welcome');
+            setIsAuthOpen(true);
+          }}
           recentProjects={recentProjects}
         />
         <SettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           onClearProjects={() => setRecentProjects([])}
+        />
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          initialMode={authInitialMode}
+        />
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          onOpenAuth={() => {
+            setIsProfileOpen(false);
+            setAuthInitialMode('signin');
+            setIsAuthOpen(true);
+          }}
+          onClearLocalData={() => setRecentProjects([])}
         />
       </>
     );
@@ -846,6 +884,7 @@ export function App() {
         onRedo={handleRedo}
         onOpenExport={() => setIsExportOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
         isComparing={isComparing}
         onStartComparing={() => setIsComparing(true)}
         onStopComparing={() => setIsComparing(false)}
@@ -985,7 +1024,34 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         onClearProjects={() => setRecentProjects([])}
       />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        initialMode={authInitialMode}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        onOpenAuth={() => {
+          setIsProfileOpen(false);
+          setAuthInitialMode('signin');
+          setIsAuthOpen(true);
+        }}
+        onClearLocalData={() => setRecentProjects([])}
+      />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <ChromaStudioApp />
+    </AuthProvider>
   );
 }
 

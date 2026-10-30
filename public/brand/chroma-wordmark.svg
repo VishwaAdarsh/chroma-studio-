@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 100" width="420" height="100" fill="none">
+  <defs>
+    <linearGradient id="wm-chroma-grad-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="25%" stop-color="#A855F7" />
+      <stop offset="50%" stop-color="#EC4899" />
+      <stop offset="75%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <linearGradient id="wm-chroma-grad-warm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#A855F7" />
+    </linearGradient>
+    <linearGradient id="wm-text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Mark (App Icon Silhouette) -->
+  <g transform="translate(10, 10)">
+    <rect width="80" height="80" rx="20" fill="#0B0C10" stroke="#1E293B" stroke-width="1.5" />
+    <g transform="translate(40, 40) scale(0.8)">
+      <path d="M 0 -36 C 22 -36 36 -20 36 0 C 36 6 34 11 31 16 L 16 7 C 20 2 20 -4 16 -12 C 12 -20 4 -22 -6 -20 L -12 -34 C -8 -35 -4 -36 0 -36 Z" 
+            fill="url(#wm-chroma-grad-primary)" />
+      <path d="M 0 -36 C -20 -36 -36 -20 -36 0 C -36 20 -20 36 0 36 C 14 36 26 28 32 17 L 18 10 C 14 17 6 22 -2 22 C -14 22 -22 14 -22 0 C -22 -14 -14 -22 -2 -22 C 2 -22 6 -20 9 -17 L 22 -27 C 16 -32 8 -36 0 -36 Z" 
+            fill="url(#wm-chroma-grad-primary)" />
+      <circle cx="-1" cy="0" r="7" fill="#0B0C10" />
+      <circle cx="-1" cy="0" r="4.5" fill="url(#wm-chroma-grad-warm)" />
+      <circle cx="-3" cy="-2" r="1.5" fill="#FFFFFF" opacity="0.85" />
+    </g>
+  </g>
+
+  <!-- Typography Right -->
+  <g transform="translate(108, 0)">
+    <!-- Title: CHROMA -->
+    <text x="0" y="52" 
+          font-family="system-ui, -apple-system, 'Inter', sans-serif" 
+          font-size="34" 
+          font-weight="900" 
+          letter-spacing="1.5" 
+          fill="url(#wm-text-grad)">CHROMA</text>
+    
+    <!-- Title: STUDIO -->
+    <text x="165" y="52" 
+          font-family="system-ui, -apple-system, 'Inter', sans-serif" 
+          font-size="34" 
+          font-weight="400" 
+          letter-spacing="2" 
+          fill="url(#wm-chroma-grad-primary)">STUDIO</text>
+
+    <!-- Tagline: Edit. Design. Create. Inspire. -->
+    <text x="2" y="74" 
+          font-family="system-ui, -apple-system, 'Inter', sans-serif" 
+          font-size="11" 
+          font-weight="600" 
+          letter-spacing="2.8" 
+          fill="#94A3B8">EDIT • DESIGN • CREATE • INSPIRE</text>
+  </g>
+</svg>
