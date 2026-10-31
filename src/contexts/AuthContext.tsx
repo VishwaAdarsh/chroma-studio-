@@ -42,6 +42,26 @@ export function isValidE164(phone: string): boolean {
   return /^\+[1-9]\d{6,14}$/.test(phone);
 }
 
+export type AuthViewMode =
+  | 'welcome'
+  | 'signin'
+  | 'signup'
+  | 'forgot_password'
+  | 'reset_password'
+  | 'verify_email'
+  | 'phone_otp';
+
+export type PendingDestination =
+  | { type: 'editor'; file?: File; sample?: any }
+  | { type: 'template-edit'; template?: any; project?: any }
+  | { type: 'collage-edit'; images?: string[]; project?: any }
+  | { type: 'carousel-edit'; family?: any; project?: any }
+  | { type: 'open-project'; project: any }
+  | { type: 'my-projects' }
+  | { type: 'save-project' }
+  | { type: 'profile' }
+  | { type: 'export' };
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -51,6 +71,17 @@ interface AuthContextType {
   isConfigured: boolean;
   isGuest: boolean;
   isRecoveryMode: boolean;
+  // Auth Gate & Pending Destination State
+  pendingDestination: PendingDestination | null;
+  authModalOpen: boolean;
+  authModalMode: AuthViewMode;
+  authModalReason: string | null;
+  openAuthModal: (mode?: AuthViewMode, reason?: string, destination?: PendingDestination | null) => void;
+  closeAuthModal: () => void;
+  requireAuth: (destination: PendingDestination, onProceed?: () => void, reason?: string) => boolean;
+  clearPendingDestination: () => void;
+  consumePendingDestination: () => PendingDestination | null;
+  // Auth Operations
   signUp: (email: string, password: string, fullName: string, username?: string) => Promise<{ error: Error | null; needsEmailVerification: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -72,6 +103,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const GUEST_STORAGE_KEY = 'chroma_studio_guest_mode';
+const PENDING_DESTINATION_KEY = 'chroma_pending_auth_destination';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -87,6 +119,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   });
+
+  // Auth Gate & Pending Destination State
+  const [pendingDestination, setPendingDestination] = useState<PendingDestination | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(PENDING_DESTINATION_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthViewMode>('signin');
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null);
+
+  const clearPendingDestination = useCallback(() => {
+    setPendingDestination(null);
+    try {
+      sessionStorage.removeItem(PENDING_DESTINATION_KEY);
+    } catch {}
+  }, []);
+
+  const openAuthModal = useCallback(
+    (mode: AuthViewMode = 'signin', reason?: string, destination?: PendingDestination | null) => {
+      if (destination) {
+        setPendingDestination(destination);
+        try {
+          sessionStorage.setItem(PENDING_DESTINATION_KEY, JSON.stringify(destination));
+        } catch {}
+      }
+      setAuthModalMode(mode);
+      setAuthModalReason(reason || null);
+      setAuthModalOpen(true);
+    },
+    []
+  );
+
+  const closeAuthModal = useCallback(() => {
+    setAuthModalOpen(false);
+    setAuthModalReason(null);
+  }, []);
+
+  const requireAuth = useCallback(
+    (destination: PendingDestination, onProceed?: () => void, reason?: string): boolean => {
+      if (user) {
+        if (onProceed) onProceed();
+        return true;
+      }
+      setPendingDestination(destination);
+      try {
+        sessionStorage.setItem(PENDING_DESTINATION_KEY, JSON.stringify(destination));
+      } catch {}
+      setAuthModalReason(reason || 'Sign in to access this feature');
+      setAuthModalMode('signin');
+      setAuthModalOpen(true);
+      return false;
+    },
+    [user]
+  );
+
+  const consumePendingDestination = useCallback((): PendingDestination | null => {
+    let dest = pendingDestination;
+    if (!dest) {
+      try {
+        const stored = sessionStorage.getItem(PENDING_DESTINATION_KEY);
+        if (stored) dest = JSON.parse(stored);
+      } catch {}
+    }
+    setPendingDestination(null);
+    try {
+      sessionStorage.removeItem(PENDING_DESTINATION_KEY);
+    } catch {}
+    return dest;
+  }, [pendingDestination]);
 
   const setGuestMode = useCallback((guest: boolean) => {
     setIsGuestState(guest);
@@ -602,6 +707,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isConfigured: isSupabaseConfigured,
     isGuest,
     isRecoveryMode,
+    pendingDestination,
+    authModalOpen,
+    authModalMode,
+    authModalReason,
+    openAuthModal,
+    closeAuthModal,
+    requireAuth,
+    clearPendingDestination,
+    consumePendingDestination,
     signUp,
     signIn,
     signInWithGoogle,

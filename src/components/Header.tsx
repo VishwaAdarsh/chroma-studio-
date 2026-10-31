@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onBlur={handleFinishEditing}
                 onKeyDown={(e) => e.key === 'Enter' && handleFinishEditing()}
                 autoFocus
-                className="bg-[#111827] text-white px-2 py-0.5 rounded text-[13px] font-semibold border border-[#8B5CF6] outline-none max-w-[140px]"
+                className="bg-[#111827] text-white px-2 py-0.5 rounded text-[13px] font-semibold border border-[#8B5CF6] outline-none max-w-[100px] sm:max-w-[140px]"
               />
             ) : (
               <div
@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1 cursor-pointer group"
                 title="Click to rename project"
               >
-                <h1 className="text-[13px] font-semibold text-white truncate max-w-[160px] group-hover:text-[#8B5CF6] transition-colors">
+                <h1 className="text-[13px] font-semibold text-white truncate max-w-[95px] sm:max-w-[160px] group-hover:text-[#8B5CF6] transition-colors">
                   {projectName}
                 </h1>
                 <span className="material-symbols-outlined text-[13px] text-[#94A3B8] opacity-0 group-hover:opacity-100 transition-opacity">
@@ -91,16 +91,16 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse" />
-              <span className="text-[10px] text-[#94A3B8] font-mono">
-                {historyStepsCount} steps • DCI-P3 16-bit
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse shrink-0" />
+              <span className="text-[10px] text-[#94A3B8] font-mono truncate">
+                <span className="hidden sm:inline">{historyStepsCount} steps • </span>DCI-P3 16-bit
               </span>
             </div>
           </div>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Zoom toggle */}
           <button
             onClick={onToggleZoom}
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Toggle Canvas Zoom"
           >
             <span className="material-symbols-outlined text-[13px]">fit_screen</span>
-            <span>{Math.round(zoomLevel * 100)}%</span>
+            <span className="hidden sm:inline">{Math.round(zoomLevel * 100)}%</span>
           </button>
 
           {/* Undo */}

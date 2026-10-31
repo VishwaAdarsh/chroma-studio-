@@ -42,7 +42,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onSelectTemplate,
   recentProjects,
 }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, requireAuth, openAuthModal } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // UI state
@@ -55,22 +55,23 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onImportFile(file);
+      requireAuth({ type: 'editor', file }, () => onImportFile(file), 'Sign in to edit this image in Photo Editor');
     }
+    e.target.value = '';
   };
 
   const handleBottomTabSelect = (tab: BottomNavTab) => {
     setCurrentBottomTab(tab);
     if (tab === 'editor') {
-      fileInputRef.current?.click();
+      requireAuth({ type: 'editor' }, () => fileInputRef.current?.click(), 'Sign in to access the Photo Editor');
     } else if (tab === 'templates') {
       onOpenTemplates();
     } else if (tab === 'projects') {
-      onOpenProjectsView();
+      requireAuth({ type: 'my-projects' }, () => onOpenProjectsView(), 'Sign in to view your projects');
     }
   };
 
-  const displayName = profile?.full_name || (user ? user.email?.split('@')[0] : 'Ananya Sharma');
+  const displayName = profile?.full_name || (user ? user.email?.split('@')[0] : 'Guest Explorer');
   const avatarUrl =
     profile?.avatar_url ||
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
@@ -152,25 +153,43 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               )}
             </div>
 
-            {/* User Avatar with Green Online Dot */}
-            <button
-              onClick={() => setIsProfileSheetOpen(true)}
-              className="relative flex items-center gap-2 p-1 rounded-full hover:bg-white/5 transition-all cursor-pointer"
-              title="Open Account Menu"
-            >
-              <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-tr from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] p-0.5 shadow-md">
-                <img
-                  src={avatarUrl}
-                  alt={displayName}
-                  className="w-full h-full object-cover rounded-full"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+            {/* User Avatar with Green Online Dot or Sign In Button */}
+            {user ? (
+              <button
+                onClick={() => setIsProfileSheetOpen(true)}
+                className="relative flex items-center gap-2 p-1 rounded-full hover:bg-white/5 transition-all cursor-pointer"
+                title="Open Account Menu"
+              >
+                <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-tr from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] p-0.5 shadow-md">
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070B14]" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openAuthModal('signin', 'Sign in to access your creative studio and saved projects')}
+                  className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white text-[12px] font-bold shadow-md shadow-purple-950/40 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">login</span>
+                  <span>Sign In</span>
+                </button>
+                <button
+                  onClick={() => setIsProfileSheetOpen(true)}
+                  className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                  title="Guest Explorer Menu"
+                >
+                  <span className="material-symbols-outlined text-[20px]">person_outline</span>
+                </button>
               </div>
-              {/* Online Green Status Dot */}
-              <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070B14]" />
-            </button>
+            )}
           </div>
         </div>
       </header>
@@ -188,7 +207,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         {/* B. The 4 Creative Workspace Cards */}
         <WorkspaceCards
-          onOpenEditor={() => fileInputRef.current?.click()}
+          onOpenEditor={() => requireAuth({ type: 'editor' }, () => fileInputRef.current?.click(), 'Sign in to access the Photo Editor')}
           onOpenTemplates={onOpenTemplates}
           onOpenCollage={onOpenCollage}
           onOpenCarousel={onOpenCarousel}
@@ -200,7 +219,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           onViewAll={onOpenTemplates}
           onSelectTemplate={(template) => {
             if (onSelectTemplate) {
-              onSelectTemplate(template);
+              requireAuth(
+                { type: 'template-edit', template },
+                () => onSelectTemplate(template),
+                `Sign in to customize "${template.name}"`
+              );
             } else {
               onOpenTemplates();
             }
@@ -209,15 +232,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         {/* D. Recent Projects Section */}
         <RecentProjectsSection
-          projects={recentProjects}
+          projects={user ? recentProjects : []}
           onOpenProject={onOpenProject}
-          onViewAllProjects={onOpenProjectsView}
-          onStartNew={() => fileInputRef.current?.click()}
+          onViewAllProjects={() => requireAuth({ type: 'my-projects' }, onOpenProjectsView, 'Sign in to view all saved projects')}
+          onStartNew={() => requireAuth({ type: 'editor' }, () => fileInputRef.current?.click(), 'Sign in to create a new project')}
         />
 
         {/* E. Upgrade to Pro & Storage Section */}
         <UpgradeProCard
-          onUpgradeClick={onOpenProfile}
+          onUpgradeClick={() => requireAuth({ type: 'profile' }, onOpenProfile, 'Sign in to upgrade to Chroma Pro')}
           storageUsedMB={2450} // 2.4 GB matching screenshot
         />
       </main>
@@ -228,15 +251,22 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         onClose={() => setIsDrawerOpen(false)}
         activeRoute="home"
         onNavigate={(route) => {
-          if (route === 'editor') fileInputRef.current?.click();
-          if (route === 'templates-browse') onOpenTemplates();
-          if (route === 'collage-browse') onOpenCollage();
-          if (route === 'carousel-browse') onOpenCarousel();
-          if (route === 'my-projects') onOpenProjectsView();
-          if (route === 'explore') onOpenTemplates();
+          if (route === 'editor') {
+            requireAuth({ type: 'editor' }, () => fileInputRef.current?.click(), 'Sign in to access the Photo Editor');
+          } else if (route === 'templates-browse') {
+            onOpenTemplates();
+          } else if (route === 'collage-browse') {
+            onOpenCollage();
+          } else if (route === 'carousel-browse') {
+            onOpenCarousel();
+          } else if (route === 'my-projects') {
+            requireAuth({ type: 'my-projects' }, onOpenProjectsView, 'Sign in to access your projects');
+          } else if (route === 'explore') {
+            onOpenTemplates();
+          }
         }}
         onOpenSettings={onOpenSettings}
-        onOpenUpgrade={onOpenProfile}
+        onOpenUpgrade={() => requireAuth({ type: 'profile' }, onOpenProfile, 'Sign in to manage your plan')}
       />
 
       {/* ANDROID PROFILE BOTTOM SHEET / DROPDOWN */}

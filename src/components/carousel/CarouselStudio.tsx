@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CAROUSEL_FAMILIES, CarouselFamilyDefinition } from '../../data/carouselTemplates';
 import { CarouselFormat } from '../../types/design';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CarouselStudioProps {
   onBack: () => void;
@@ -11,6 +12,7 @@ export const CarouselStudio: React.FC<CarouselStudioProps> = ({
   onBack,
   onSelectCarousel,
 }) => {
+  const { requireAuth } = useAuth();
   const [selectedFormat, setSelectedFormat] = useState<CarouselFormat | 'all'>('all');
 
   const filteredFamilies = CAROUSEL_FAMILIES.filter(
@@ -84,7 +86,13 @@ export const CarouselStudio: React.FC<CarouselStudioProps> = ({
           {filteredFamilies.map((family) => (
             <div
               key={family.id}
-              onClick={() => onSelectCarousel(family)}
+              onClick={() =>
+                requireAuth(
+                  { type: 'carousel-edit', family },
+                  () => onSelectCarousel(family),
+                  `Sign in to customize "${family.name}"`
+                )
+              }
               className="rounded-2xl bg-surface-container-lowest border border-outline-variant overflow-hidden flex flex-col p-4 gap-3 cursor-pointer hover:border-primary transition-all shadow-xs group"
             >
               {/* Mini Slide Strip preview */}

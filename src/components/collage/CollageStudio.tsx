@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { COLLAGE_LAYOUTS } from '../../data/collageLayouts';
 import { SAMPLE_IMAGES } from '../../data/samples';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CollageStudioProps {
   onBack: () => void;
@@ -11,6 +12,7 @@ export const CollageStudio: React.FC<CollageStudioProps> = ({
   onBack,
   onStartCollage,
 }) => {
+  const { requireAuth } = useAuth();
   const [selectedImages, setSelectedImages] = useState<string[]>([
     SAMPLE_IMAGES[0].url,
     SAMPLE_IMAGES[1].url,
@@ -163,7 +165,13 @@ export const CollageStudio: React.FC<CollageStudioProps> = ({
             {COLLAGE_LAYOUTS.slice(0, 8).map((layout) => (
               <div
                 key={layout.id}
-                onClick={() => onStartCollage(selectedImages)}
+                onClick={() =>
+                  requireAuth(
+                    { type: 'collage-edit', images: selectedImages },
+                    () => onStartCollage(selectedImages),
+                    `Sign in to create a ${layout.name} collage`
+                  )
+                }
                 className="p-3 rounded-xl bg-surface-container-lowest border border-outline-variant flex flex-col gap-2 hover:border-primary cursor-pointer transition-all shadow-xs"
               >
                 <div className="w-full h-24 rounded-lg bg-surface-container-high border border-outline-variant/60 relative overflow-hidden flex items-center justify-center">

@@ -8,12 +8,16 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: AuthViewMode;
+  reason?: string | null;
+  onSuccess?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   initialMode = 'welcome',
+  reason = null,
+  onSuccess,
 }) => {
   const {
     user,
@@ -102,6 +106,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else {
       setSuccessMsg('Signed in successfully!');
       setTimeout(() => {
+        if (onSuccess) onSuccess();
         onClose();
       }, 500);
     }
@@ -145,6 +150,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else {
       setSuccessMsg('Account created and signed in!');
       setTimeout(() => {
+        if (onSuccess) onSuccess();
         onClose();
       }, 600);
     }
@@ -250,6 +256,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else {
       setSuccessMsg('Phone verified successfully! You are now logged in.');
       setTimeout(() => {
+        if (onSuccess) onSuccess();
         onClose();
       }, 600);
     }
@@ -314,20 +321,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="absolute inset-0 bg-gradient-to-tr from-[#6366F1]/30 via-transparent to-[#EC4899]/30 pointer-events-none" />
 
           {/* Top Brand Logo */}
-          <div className="relative z-10">
+          <div className="relative z-10 flex items-center justify-between">
             <ChromaLogo variant="header" size="md" />
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/10 uppercase tracking-wider">
+              Studio Pro
+            </span>
           </div>
 
           {/* Bottom Showcase Copy */}
           <div className="relative z-10 flex flex-col gap-3">
+            {reason && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-200 text-[11px] backdrop-blur-md self-start">
+                <span className="material-symbols-outlined text-[15px] text-[#EC4899]">auto_awesome</span>
+                <span className="font-semibold">{reason}</span>
+              </div>
+            )}
             <h2 className="text-3xl font-extrabold text-white tracking-tight leading-tight">
-              {mode === 'signup' ? 'Turn Ideas Into Stunning Creations' : 'Edit Design Create Your Way'}
+              {mode === 'signup' ? 'Turn Ideas Into Stunning Creations' : 'Welcome Back to Your Creative Studio'}
             </h2>
             <p className="text-[13px] text-[#CBD5E1] font-normal leading-relaxed">
-              Professional tools. Ready-made templates. Stunning results.
+              Professional tools. Ready-made templates. Lossless 4K exports.
             </p>
+
+            {/* Creative feature pills */}
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10">
+                ✦ 100+ Templates
+              </span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10">
+                ✦ Lossless 4K Export
+              </span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/10 text-white/90 border border-white/10">
+                ✦ DCI-P3 Color Grading
+              </span>
+            </div>
+
             {/* Pagination Dots */}
-            <div className="flex items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-1.5 mt-1">
               <span className="w-2 h-2 rounded-full bg-[#8B5CF6]" />
               <span className="w-2 h-2 rounded-full bg-white/20" />
               <span className="w-2 h-2 rounded-full bg-white/20" />
@@ -337,21 +367,69 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* RIGHT COLUMN: Interactive Form matching reference screenshot */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center overflow-y-auto max-h-[88vh]">
-          {/* Feedback Banners */}
-          {errorMsg && (
-            <div className="p-3 mb-4 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-[12px] flex items-start gap-2">
-              <span className="material-symbols-outlined text-[18px] text-red-400 shrink-0">error</span>
-              <p className="leading-snug">{errorMsg}</p>
-            </div>
-          )}
+        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[88vh]">
+          <div>
+            {/* Action Reason Banner on Mobile / Top */}
+            {reason && (
+              <div className="p-3 mb-3 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 text-white text-[12px] flex items-center gap-2.5 shadow-sm">
+                <span className="material-symbols-outlined text-[18px] text-[#A855F7] shrink-0">lock</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block text-white text-[12px]">Sign in to continue</span>
+                  <span className="text-[#CBD5E1] text-[11px] leading-tight block">{reason}</span>
+                </div>
+              </div>
+            )}
 
-          {successMsg && (
-            <div className="p-3 mb-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-[12px] flex items-start gap-2">
-              <span className="material-symbols-outlined text-[18px] text-emerald-400 shrink-0">check_circle</span>
-              <p className="leading-snug">{successMsg}</p>
-            </div>
-          )}
+            {/* Canva-inspired Segmented Switch between Sign In & Create Account */}
+            {(mode === 'signin' || mode === 'welcome' || mode === 'signup') && (
+              <div className="flex rounded-2xl bg-[#111827] p-1 border border-white/10 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signin');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    mode === 'signin' || mode === 'welcome'
+                      ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">login</span>
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    mode === 'signup'
+                      ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">person_add</span>
+                  <span>Create Account</span>
+                </button>
+              </div>
+            )}
+
+            {/* Feedback Banners */}
+            {errorMsg && (
+              <div className="p-3 mb-4 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-[12px] flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px] text-red-400 shrink-0">error</span>
+                <p className="leading-snug">{errorMsg}</p>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="p-3 mb-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-[12px] flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px] text-emerald-400 shrink-0">check_circle</span>
+                <p className="leading-snug">{successMsg}</p>
+              </div>
+            )}
 
           {/* 1. SIGN IN SCREEN */}
           {(mode === 'signin' || mode === 'welcome') && (
@@ -991,6 +1069,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </form>
           )}
+          </div>
+
+          {/* Footer: Guest Browsing Return & Policy */}
+          <div className="mt-4 pt-3 border-t border-white/10 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-[12px] font-semibold text-[#94A3B8] hover:text-white flex items-center gap-1.5 py-1.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>Continue browsing without signing in</span>
+            </button>
+            <p className="text-[10px] text-[#64748B] text-center leading-tight">
+              By continuing, you agree to Chroma Studio's <span className="underline">Terms of Service</span> and <span className="underline">Privacy Policy</span>.
+            </p>
+          </div>
         </div>
       </div>
     </div>

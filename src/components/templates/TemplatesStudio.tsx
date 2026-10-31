@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { READY_MADE_TEMPLATES, TEMPLATE_CATEGORIES } from '../../data/templatesData';
 import { StorageService } from '../../services/storage';
 import { ReadyMadeTemplate, TemplateStudioCategory } from '../../types/design';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TemplatesStudioProps {
   onBack: () => void;
@@ -12,6 +13,7 @@ export const TemplatesStudio: React.FC<TemplatesStudioProps> = ({
   onBack,
   onSelectTemplate,
 }) => {
+  const { requireAuth } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<TemplateStudioCategory>('All Templates');
   const [searchQuery, setSearchQuery] = useState('');
   const [previewTemplate, setPreviewTemplate] = useState<ReadyMadeTemplate | null>(null);
@@ -309,7 +311,11 @@ export const TemplatesStudio: React.FC<TemplatesStudioProps> = ({
                 onClick={() => {
                   const tmpl = previewTemplate;
                   setPreviewTemplate(null);
-                  onSelectTemplate(tmpl);
+                  requireAuth(
+                    { type: 'template-edit', template: tmpl },
+                    () => onSelectTemplate(tmpl),
+                    `Sign in to customize "${tmpl.name}"`
+                  );
                 }}
                 className="px-5 py-2 rounded-xl bg-primary text-white text-[12px] font-bold shadow-md shadow-primary/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               >

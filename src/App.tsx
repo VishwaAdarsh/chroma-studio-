@@ -65,7 +65,18 @@ interface HistorySnapshot {
 }
 
 function ChromaStudioApp() {
-  const { user, isGuest, isRecoveryMode } = useAuth();
+  const {
+    user,
+    loading,
+    isGuest,
+    isRecoveryMode,
+    authModalOpen,
+    authModalMode,
+    authModalReason,
+    openAuthModal,
+    closeAuthModal,
+    consumePendingDestination,
+  } = useAuth();
   // Navigation & Modal States
   const [currentView, setCurrentView] = useState<
     | 'home'
@@ -81,16 +92,13 @@ function ChromaStudioApp() {
   const [activeTab, setActiveTab] = useState<EditorTab>('adjust');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authInitialMode, setAuthInitialMode] = useState<AuthViewMode>('welcome');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (isRecoveryMode) {
-      setAuthInitialMode('reset_password');
-      setIsAuthOpen(true);
+      openAuthModal('reset_password', 'Create a new password for your Chroma Studio account');
     }
-  }, [isRecoveryMode]);
+  }, [isRecoveryMode, openAuthModal]);
 
   // Creative Studios Active Projects & Models
   const [activeTemplate, setActiveTemplate] = useState<ReadyMadeTemplate | undefined>();
@@ -470,8 +478,8 @@ function ChromaStudioApp() {
     }
 
     CapacitorApp.addListener('backButton', () => {
-      if (isAuthOpen) {
-        setIsAuthOpen(false);
+      if (authModalOpen) {
+        closeAuthModal();
       } else if (isProfileOpen) {
         setIsProfileOpen(false);
       } else if (isExportOpen) {
@@ -508,8 +516,11 @@ function ChromaStudioApp() {
       if (removeListener) removeListener();
     };
   }, [
+    authModalOpen,
+    closeAuthModal,
     isExportOpen,
     isSettingsOpen,
+    isProfileOpen,
     currentView,
     projectId,
     projectName,
@@ -522,6 +533,110 @@ function ChromaStudioApp() {
     curves,
     wheels,
   ]);
+
+  // Handle successful authentication and route to pending destination
+  const handleAuthSuccess = useCallback(() => {
+    closeAuthModal();
+    const dest = consumePendingDestination();
+    if (!dest) return;
+
+    switch (dest.type) {
+      case 'editor':
+        if (dest.sample) {
+          handleStartWithSample(dest.sample);
+        } else if (dest.file) {
+          handleImportFile(dest.file);
+        } else if (!imageSrc) {
+          handleStartWithSample(SAMPLE_IMAGES[0]);
+        } else {
+          setCurrentView('editor');
+        }
+        break;
+      case 'open-project':
+        if (dest.project) {
+          handleOpenProject(dest.project);
+        }
+        break;
+      case 'template-edit':
+        if (dest.template) {
+          setActiveTemplate(dest.template);
+          setActiveTemplateProject(undefined);
+          setCurrentView('template-edit');
+        }
+        break;
+      case 'collage-edit':
+        if (dest.images) {
+          setActiveCollageImages(dest.images);
+          setActiveCollageProject(undefined);
+          setCurrentView('collage-edit');
+        }
+        break;
+      case 'carousel-edit':
+        if (dest.family) {
+          setActiveCarouselFamily(dest.family);
+          setActiveCarouselProject(undefined);
+          setCurrentView('carousel-edit');
+        }
+        break;
+      case 'my-projects':
+        setCurrentView('my-projects');
+        break;
+      case 'profile':
+        setIsProfileOpen(true);
+        break;
+      default:
+        break;
+    }
+  }, [closeAuthModal, consumePendingDestination, imageSrc]);
+
+  // Handle post-redirect auth restoration (e.g. Google OAuth or page reload)
+  useEffect(() => {
+    if (user && !loading) {
+      const dest = consumePendingDestination();
+      if (!dest) return;
+
+      switch (dest.type) {
+        case 'editor':
+          if (dest.sample) handleStartWithSample(dest.sample);
+          else if (dest.file) handleImportFile(dest.file);
+          else if (!imageSrc) handleStartWithSample(SAMPLE_IMAGES[0]);
+          else setCurrentView('editor');
+          break;
+        case 'open-project':
+          if (dest.project) handleOpenProject(dest.project);
+          break;
+        case 'template-edit':
+          if (dest.template) {
+            setActiveTemplate(dest.template);
+            setActiveTemplateProject(undefined);
+            setCurrentView('template-edit');
+          }
+          break;
+        case 'collage-edit':
+          if (dest.images) {
+            setActiveCollageImages(dest.images);
+            setActiveCollageProject(undefined);
+            setCurrentView('collage-edit');
+          }
+          break;
+        case 'carousel-edit':
+          if (dest.family) {
+            setActiveCarouselFamily(dest.family);
+            setActiveCarouselProject(undefined);
+            setCurrentView('carousel-edit');
+          }
+          break;
+        case 'my-projects':
+          setCurrentView('my-projects');
+          break;
+        case 'profile':
+          setIsProfileOpen(true);
+          break;
+        default:
+          break;
+      }
+    }
+  }, [user, loading]);
 
   // Periodic autosave for active photo editor sessions
   useEffect(() => {
@@ -697,324 +812,315 @@ function ChromaStudioApp() {
     setRecentProjects(projs);
   };
 
-  // 1. Home Dashboard View
-  if (currentView === 'home') {
+  // Loading state splash screen to eliminate auth flicker
+  if (loading) {
     return (
-      <>
-        {recoverableSession && (
-          <div className="fixed top-16 inset-x-4 z-50 max-w-lg mx-auto bg-surface-container-high border-2 border-primary text-on-surface p-3.5 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-primary text-[22px]">history</span>
-              <div>
-                <h4 className="text-[12px] font-bold text-on-surface leading-tight">Recover Previous Session?</h4>
-                <p className="text-[10px] text-on-surface-variant">
-                  {recoverableSession.projectName} from {new Date(recoverableSession.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleDismissSession}
-                className="px-2.5 py-1 text-[11px] font-semibold text-outline hover:text-on-surface cursor-pointer"
-              >
-                Dismiss
-              </button>
-              <button
-                onClick={handleRestoreSession}
-                className="px-3 py-1 bg-primary text-white text-[11px] font-bold rounded-lg shadow-sm hover:brightness-110 cursor-pointer"
-              >
-                Restore
-              </button>
-            </div>
+      <div className="min-h-screen w-full bg-[#070B14] flex flex-col items-center justify-center gap-4 text-white">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#8B5CF6] to-[#EC4899] p-0.5 animate-pulse shadow-lg shadow-purple-500/20">
+          <div className="w-full h-full bg-[#070B14] rounded-2xl flex items-center justify-center">
+            <span className="material-symbols-outlined text-[24px] text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#EC4899]">
+              palette
+            </span>
           </div>
-        )}
-        <HomeDashboard
-          onStartWithSample={handleStartWithSample}
-          onOpenProject={handleOpenProject}
-          onImportFile={handleImportFile}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenTemplates={() => setCurrentView('templates-browse')}
-          onOpenCollage={() => setCurrentView('collage-browse')}
-          onOpenCarousel={() => setCurrentView('carousel-browse')}
-          onOpenProjectsView={() => setCurrentView('my-projects')}
-          onOpenProfile={() => setIsProfileOpen(true)}
-          onOpenAuth={() => {
-            setAuthInitialMode('welcome');
-            setIsAuthOpen(true);
-          }}
-          onSelectTemplate={(template) => {
-            setActiveTemplate(template);
-            setActiveTemplateProject(undefined);
-            setCurrentView('template-edit');
-          }}
-          recentProjects={recentProjects}
-        />
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          onClearProjects={() => setRecentProjects([])}
-        />
-        <AuthModal
-          isOpen={isAuthOpen}
-          onClose={() => setIsAuthOpen(false)}
-          initialMode={authInitialMode}
-        />
-        <ProfileModal
-          isOpen={isProfileOpen}
-          onClose={() => setIsProfileOpen(false)}
-          onOpenAuth={() => {
-            setIsProfileOpen(false);
-            setAuthInitialMode('signin');
-            setIsAuthOpen(true);
-          }}
-          onClearLocalData={() => setRecentProjects([])}
-        />
-      </>
-    );
-  }
-
-  // 2. Templates Studio Browsing View
-  if (currentView === 'templates-browse') {
-    return (
-      <TemplatesStudio
-        onBack={() => setCurrentView('home')}
-        onSelectTemplate={(template) => {
-          setActiveTemplate(template);
-          setActiveTemplateProject(undefined);
-          setCurrentView('template-edit');
-        }}
-      />
-    );
-  }
-
-  // 3. Template Customization Editor View
-  if (currentView === 'template-edit') {
-    return (
-      <TemplateEditor
-        initialTemplate={activeTemplate}
-        existingProject={activeTemplateProject}
-        onBack={() => {
-          refreshProjectsList();
-          setCurrentView('templates-browse');
-        }}
-        onSave={() => refreshProjectsList()}
-      />
-    );
-  }
-
-  // 4. Collage Studio Layout & Photo Picker View
-  if (currentView === 'collage-browse') {
-    return (
-      <CollageStudio
-        onBack={() => setCurrentView('home')}
-        onStartCollage={(images) => {
-          setActiveCollageImages(images);
-          setActiveCollageProject(undefined);
-          setCurrentView('collage-edit');
-        }}
-      />
-    );
-  }
-
-  // 5. Collage Editor View
-  if (currentView === 'collage-edit') {
-    return (
-      <CollageEditor
-        initialImages={activeCollageImages}
-        existingProject={activeCollageProject}
-        onBack={() => {
-          refreshProjectsList();
-          setCurrentView('collage-browse');
-        }}
-        onSave={() => refreshProjectsList()}
-      />
-    );
-  }
-
-  // 6. Carousel Studio Templates View
-  if (currentView === 'carousel-browse') {
-    return (
-      <CarouselStudio
-        onBack={() => setCurrentView('home')}
-        onSelectCarousel={(family) => {
-          setActiveCarouselFamily(family);
-          setActiveCarouselProject(undefined);
-          setCurrentView('carousel-edit');
-        }}
-      />
-    );
-  }
-
-  // 7. Carousel Multi-Slide Editor View
-  if (currentView === 'carousel-edit') {
-    return (
-      <CarouselEditor
-        initialFamily={activeCarouselFamily}
-        existingProject={activeCarouselProject}
-        onBack={() => {
-          refreshProjectsList();
-          setCurrentView('carousel-browse');
-        }}
-        onSave={() => refreshProjectsList()}
-      />
-    );
-  }
-
-  // 8. My Projects Unified Library View
-  if (currentView === 'my-projects') {
-    return (
-      <MyProjectsView
-        projects={recentProjects}
-        onOpenProject={handleOpenProject}
-        onRefresh={refreshProjectsList}
-        onBack={() => setCurrentView('home')}
-      />
-    );
-  }
-
-  // 9. Existing Photo Editor View
-  return (
-    <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white overflow-hidden">
-      {/* Top Header */}
-      <Header
-        projectName={projectName}
-        onRenameProject={setProjectName}
-        onBackToHome={() => {
-          saveCurrentProjectToStorage();
-          setCurrentView('home');
-        }}
-        canUndo={historyPast.length > 0}
-        canRedo={historyFuture.length > 0}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onOpenExport={() => setIsExportOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenProfile={() => setIsProfileOpen(true)}
-        isComparing={isComparing}
-        onStartComparing={() => setIsComparing(true)}
-        onStopComparing={() => setIsComparing(false)}
-        zoomLevel={zoomLevel}
-        onToggleZoom={() => setZoomLevel((z) => (z === 1 ? 1.6 : 1))}
-        historyStepsCount={historyPast.length}
-      />
-
-      {/* Main Studio Canvas Viewport */}
-      <main className="flex-1 w-full max-w-5xl mx-auto pt-16 pb-2 px-3 flex flex-col justify-between gap-3">
-        {/* Canvas Surface */}
-        <CanvasView
-          canvasRef={canvasRef}
-          originalImageSrc={imageSrc}
-          isComparing={isComparing}
-          zoomLevel={zoomLevel}
-          histogram={histogram}
-          currentEV={adjustments.exposure}
-          activeAspect={geometry.crop.aspectRatio}
-          onAutoTone={handleMagicAutoTone}
-          onOpenColorLab={() => setActiveTab('colorlab')}
-          isCropping={activeTab === 'crop'}
-          crop={geometry.crop}
-          onCropChange={(crop) => setGeometry((prev) => ({ ...prev, crop }))}
-          onCropInteractionStart={handleInteractionStart}
-          onCropInteractionEnd={handleInteractionEnd}
-          sourceDimensions={originalDimensions}
-          onZoomChange={setZoomLevel}
-          onResetZoom={() => setZoomLevel(1)}
-        />
-
-        {/* Active Tool Panel Container */}
-        <div className="w-full flex flex-col gap-2 min-h-[140px]">
-          {activeTab === 'looks' && (
-            <LooksPanel
-              activePresetId={activePresetId}
-              presetIntensity={presetIntensity}
-              onSelectPreset={handleSelectPreset}
-              onChangeIntensity={setPresetIntensity}
-              favorites={favorites}
-              onToggleFavorite={handleToggleFavorite}
-              onInteractionStart={handleInteractionStart}
-              onInteractionEnd={handleInteractionEnd}
-              currentAdjustments={adjustments}
-              currentWheels={wheels}
-              currentCurves={curves}
-            />
-          )}
-
-          {activeTab === 'adjust' && (
-            <AdjustPanel
-              adjustments={adjustments}
-              onChange={handleAdjustmentChange}
-              onResetParam={handleResetAdjustmentParam}
-              onResetGroup={handleResetAdjustmentGroup}
-              onInteractionStart={handleInteractionStart}
-              onInteractionEnd={handleInteractionEnd}
-            />
-          )}
-
-          {activeTab === 'crop' && (
-            <CropPanel
-              geometry={geometry}
-              sourceDimensions={originalDimensions}
-              onChange={(geo) => setGeometry(geo)}
-              onInteractionStart={handleInteractionStart}
-              onInteractionEnd={handleInteractionEnd}
-              onReset={() => {
-                commitImmediateHistory();
-                setGeometry(DEFAULT_GEOMETRY);
-              }}
-            />
-          )}
-
-          {activeTab === 'curves' && (
-            <ToneCurvesEditor
-              curves={curves}
-              onChange={(c) => setCurves(c)}
-              onReset={() => {
-                commitImmediateHistory();
-                setCurves(DEFAULT_CURVES);
-              }}
-              onInteractionStart={handleInteractionStart}
-              onInteractionEnd={handleInteractionEnd}
-            />
-          )}
-
-          {activeTab === 'colorlab' && (
-            <div className="flex flex-col gap-3">
-              <ColorWheelsEditor
-                wheels={wheels}
-                onChange={setWheels}
-                onReset={() => {
-                  commitImmediateHistory();
-                  setWheels(DEFAULT_WHEELS);
-                }}
-                onInteractionStart={handleInteractionStart}
-                onInteractionEnd={handleInteractionEnd}
-              />
-              <ColorPaletteAssistant
-                dominantColors={dominantColors}
-                onSelectPresetRecommendation={(pId) => {
-                  const p = PRESETS.find((preset) => preset.id === pId);
-                  if (p) handleSelectPreset(p);
-                }}
-              />
-            </div>
-          )}
-
-          {activeTab === 'effects' && (
-            <EffectsPanel
-              adjustments={adjustments}
-              onChange={handleAdjustmentChange}
-              onResetParam={handleResetAdjustmentParam}
-              onInteractionStart={handleInteractionStart}
-              onInteractionEnd={handleInteractionEnd}
-            />
-          )}
         </div>
+        <div className="flex flex-col items-center gap-1">
+          <h1 className="text-base font-bold tracking-tight text-white/90">Chroma Studio</h1>
+          <p className="text-xs text-white/40">Initializing creative workspace...</p>
+        </div>
+      </div>
+    );
+  }
 
-        {/* Primary Bottom Navigation Dock */}
-        <ToolNavigation activeTab={activeTab} onSelectTab={setActiveTab} />
-      </main>
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'home':
+        return (
+          <>
+            {recoverableSession && (
+              <div className="fixed top-16 inset-x-4 z-50 max-w-lg mx-auto bg-surface-container-high border-2 border-primary text-on-surface p-3.5 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-primary text-[22px]">history</span>
+                  <div>
+                    <h4 className="text-[12px] font-bold text-on-surface leading-tight">Recover Previous Session?</h4>
+                    <p className="text-[10px] text-on-surface-variant">
+                      {recoverableSession.projectName} from {new Date(recoverableSession.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleDismissSession}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-outline hover:text-on-surface cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    onClick={handleRestoreSession}
+                    className="px-3 py-1 bg-primary text-white text-[11px] font-bold rounded-lg shadow-sm hover:brightness-110 cursor-pointer"
+                  >
+                    Restore
+                  </button>
+                </div>
+              </div>
+            )}
+            <HomeDashboard
+              onStartWithSample={handleStartWithSample}
+              onOpenProject={handleOpenProject}
+              onImportFile={handleImportFile}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onOpenTemplates={() => setCurrentView('templates-browse')}
+              onOpenCollage={() => setCurrentView('collage-browse')}
+              onOpenCarousel={() => setCurrentView('carousel-browse')}
+              onOpenProjectsView={() => setCurrentView('my-projects')}
+              onOpenProfile={() => setIsProfileOpen(true)}
+              onOpenAuth={() => openAuthModal('signin', 'Sign in to access your creative studio and saved projects')}
+              onSelectTemplate={(template) => {
+                setActiveTemplate(template);
+                setActiveTemplateProject(undefined);
+                setCurrentView('template-edit');
+              }}
+              recentProjects={recentProjects}
+            />
+          </>
+        );
 
-      {/* Export Modal */}
+      case 'templates-browse':
+        return (
+          <TemplatesStudio
+            onBack={() => setCurrentView('home')}
+            onSelectTemplate={(template) => {
+              setActiveTemplate(template);
+              setActiveTemplateProject(undefined);
+              setCurrentView('template-edit');
+            }}
+          />
+        );
+
+      case 'template-edit':
+        return (
+          <TemplateEditor
+            initialTemplate={activeTemplate}
+            existingProject={activeTemplateProject}
+            onBack={() => {
+              refreshProjectsList();
+              setCurrentView('templates-browse');
+            }}
+            onSave={() => refreshProjectsList()}
+          />
+        );
+
+      case 'collage-browse':
+        return (
+          <CollageStudio
+            onBack={() => setCurrentView('home')}
+            onStartCollage={(images) => {
+              setActiveCollageImages(images);
+              setActiveCollageProject(undefined);
+              setCurrentView('collage-edit');
+            }}
+          />
+        );
+
+      case 'collage-edit':
+        return (
+          <CollageEditor
+            initialImages={activeCollageImages}
+            existingProject={activeCollageProject}
+            onBack={() => {
+              refreshProjectsList();
+              setCurrentView('collage-browse');
+            }}
+            onSave={() => refreshProjectsList()}
+          />
+        );
+
+      case 'carousel-browse':
+        return (
+          <CarouselStudio
+            onBack={() => setCurrentView('home')}
+            onSelectCarousel={(family) => {
+              setActiveCarouselFamily(family);
+              setActiveCarouselProject(undefined);
+              setCurrentView('carousel-edit');
+            }}
+          />
+        );
+
+      case 'carousel-edit':
+        return (
+          <CarouselEditor
+            initialFamily={activeCarouselFamily}
+            existingProject={activeCarouselProject}
+            onBack={() => {
+              refreshProjectsList();
+              setCurrentView('carousel-browse');
+            }}
+            onSave={() => refreshProjectsList()}
+          />
+        );
+
+      case 'my-projects':
+        return (
+          <MyProjectsView
+            projects={recentProjects}
+            onOpenProject={handleOpenProject}
+            onRefresh={refreshProjectsList}
+            onBack={() => setCurrentView('home')}
+          />
+        );
+
+      case 'editor':
+      default:
+        return (
+          <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white overflow-hidden">
+            {/* Top Header */}
+            <Header
+              projectName={projectName}
+              onRenameProject={setProjectName}
+              onBackToHome={() => {
+                saveCurrentProjectToStorage();
+                setCurrentView('home');
+              }}
+              canUndo={historyPast.length > 0}
+              canRedo={historyFuture.length > 0}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onOpenExport={() => setIsExportOpen(true)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onOpenProfile={() => setIsProfileOpen(true)}
+              isComparing={isComparing}
+              onStartComparing={() => setIsComparing(true)}
+              onStopComparing={() => setIsComparing(false)}
+              zoomLevel={zoomLevel}
+              onToggleZoom={() => setZoomLevel((z) => (z === 1 ? 1.6 : 1))}
+              historyStepsCount={historyPast.length}
+            />
+
+            {/* Main Studio Canvas Viewport */}
+            <main className="flex-1 w-full max-w-5xl mx-auto pt-16 pb-2 px-3 flex flex-col justify-between gap-3">
+              {/* Canvas Surface */}
+              <CanvasView
+                canvasRef={canvasRef}
+                originalImageSrc={imageSrc}
+                isComparing={isComparing}
+                zoomLevel={zoomLevel}
+                histogram={histogram}
+                currentEV={adjustments.exposure}
+                activeAspect={geometry.crop.aspectRatio}
+                onAutoTone={handleMagicAutoTone}
+                onOpenColorLab={() => setActiveTab('colorlab')}
+                isCropping={activeTab === 'crop'}
+                crop={geometry.crop}
+                onCropChange={(crop) => setGeometry((prev) => ({ ...prev, crop }))}
+                onCropInteractionStart={handleInteractionStart}
+                onCropInteractionEnd={handleInteractionEnd}
+                sourceDimensions={originalDimensions}
+                onZoomChange={setZoomLevel}
+                onResetZoom={() => setZoomLevel(1)}
+              />
+
+              {/* Active Tool Panel Container */}
+              <div className="w-full flex flex-col gap-2 min-h-[140px]">
+                {activeTab === 'looks' && (
+                  <LooksPanel
+                    activePresetId={activePresetId}
+                    presetIntensity={presetIntensity}
+                    onSelectPreset={handleSelectPreset}
+                    onChangeIntensity={setPresetIntensity}
+                    favorites={favorites}
+                    onToggleFavorite={handleToggleFavorite}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                    currentAdjustments={adjustments}
+                    currentWheels={wheels}
+                    currentCurves={curves}
+                  />
+                )}
+
+                {activeTab === 'adjust' && (
+                  <AdjustPanel
+                    adjustments={adjustments}
+                    onChange={handleAdjustmentChange}
+                    onResetParam={handleResetAdjustmentParam}
+                    onResetGroup={handleResetAdjustmentGroup}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                  />
+                )}
+
+                {activeTab === 'crop' && (
+                  <CropPanel
+                    geometry={geometry}
+                    sourceDimensions={originalDimensions}
+                    onChange={(geo) => setGeometry(geo)}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                    onReset={() => {
+                      commitImmediateHistory();
+                      setGeometry(DEFAULT_GEOMETRY);
+                    }}
+                  />
+                )}
+
+                {activeTab === 'curves' && (
+                  <ToneCurvesEditor
+                    curves={curves}
+                    onChange={(c) => setCurves(c)}
+                    onReset={() => {
+                      commitImmediateHistory();
+                      setCurves(DEFAULT_CURVES);
+                    }}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                  />
+                )}
+
+                {activeTab === 'colorlab' && (
+                  <div className="flex flex-col gap-3">
+                    <ColorWheelsEditor
+                      wheels={wheels}
+                      onChange={setWheels}
+                      onReset={() => {
+                        commitImmediateHistory();
+                        setWheels(DEFAULT_WHEELS);
+                      }}
+                      onInteractionStart={handleInteractionStart}
+                      onInteractionEnd={handleInteractionEnd}
+                    />
+                    <ColorPaletteAssistant
+                      dominantColors={dominantColors}
+                      onSelectPresetRecommendation={(pId) => {
+                        const p = PRESETS.find((preset) => preset.id === pId);
+                        if (p) handleSelectPreset(p);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'effects' && (
+                  <EffectsPanel
+                    adjustments={adjustments}
+                    onChange={handleAdjustmentChange}
+                    onResetParam={handleResetAdjustmentParam}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                  />
+                )}
+              </div>
+
+              {/* Primary Bottom Navigation Dock */}
+              <ToolNavigation activeTab={activeTab} onSelectTab={setActiveTab} />
+            </main>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <>
+      {renderCurrentView()}
+
+      {/* Global Export Modal */}
       <ExportModal
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
@@ -1023,32 +1129,33 @@ function ChromaStudioApp() {
         onExport={handleExport}
       />
 
-      {/* Settings Modal */}
+      {/* Global Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onClearProjects={() => setRecentProjects([])}
       />
 
-      {/* Auth Modal */}
+      {/* Global Canva-Inspired Auth Modal */}
       <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        initialMode={authInitialMode}
+        isOpen={authModalOpen}
+        onClose={closeAuthModal}
+        initialMode={authModalMode}
+        reason={authModalReason}
+        onSuccess={handleAuthSuccess}
       />
 
-      {/* Profile Modal */}
+      {/* Global Profile Modal */}
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         onOpenAuth={() => {
           setIsProfileOpen(false);
-          setAuthInitialMode('signin');
-          setIsAuthOpen(true);
+          openAuthModal('signin', 'Sign in to manage your profile and cloud sync');
         }}
         onClearLocalData={() => setRecentProjects([])}
       />
-    </div>
+    </>
   );
 }
 

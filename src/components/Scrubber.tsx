@@ -48,15 +48,15 @@ export const Scrubber: React.FC<ScrubberProps> = ({
     <div className="w-full bg-surface-container-low p-2.5 rounded-xl space-y-1.5 border border-outline-variant shadow-sm">
       {/* Label and Value Header */}
       <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant truncate">
             {label}
           </span>
           {hasChanged && (
-            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(191,4,17,0.6)]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(191,4,17,0.6)] shrink-0" />
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {hasChanged && (
             <button
               onClick={handleResetWithHistory}
