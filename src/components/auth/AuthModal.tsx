@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChromaLogo } from '../brand/ChromaLogo';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, SUPPORTED_COUNTRIES, normalizePhoneNumber, isValidE164 } from '../../contexts/AuthContext';
 
-export type AuthViewMode = 'welcome' | 'signin' | 'signup' | 'forgot_password' | 'reset_password' | 'verify_email';
+export type AuthViewMode = 'welcome' | 'signin' | 'signup' | 'forgot_password' | 'reset_password' | 'verify_email' | 'phone_otp';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,6 +22,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithPhone,
+    verifyPhoneOtp,
+    resendPhoneOtp,
     resetPassword,
     updatePassword,
     setGuestMode,
@@ -29,6 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   } = useAuth();
 
   const [mode, setMode] = useState<AuthViewMode>(initialMode);
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -37,10 +41,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
 
+  // Phone Auth State
+  const [phone, setPhone] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(SUPPORTED_COUNTRIES[0]); // default +91 India
+  const [otpToken, setOtpToken] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Status & Feedback
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      countdownTimerRef.current = setTimeout(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
+    };
+  }, [resendCountdown]);
 
   useEffect(() => {
     if (isRecoveryMode) {
@@ -178,13 +200,86 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const handleSendPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const formatted = normalizePhoneNumber(phone, selectedCountry.dialCode);
+    if (!isValidE164(formatted)) {
+      setErrorMsg(`Please enter a valid phone number (e.g. ${selectedCountry.dialCode} 9876543210).`);
+      return;
+    }
+
+    if (mode === 'signup' && !fullName.trim()) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signInWithPhone(formatted, mode === 'signup' ? fullName.trim() : undefined);
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message || 'Failed to send SMS verification code. Please check SMS provider configuration.');
+    } else {
+      setSuccessMsg(`Verification code sent to ${formatted}!`);
+      setResendCountdown(60);
+      setMode('phone_otp');
+    }
+  };
+
+  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const cleanOtp = otpToken.replace(/\D/g, '');
+    if (cleanOtp.length < 6) {
+      setErrorMsg('Please enter the complete 6-digit OTP code.');
+      return;
+    }
+
+    const formatted = normalizePhoneNumber(phone, selectedCountry.dialCode);
+    setLoading(true);
+    const { error } = await verifyPhoneOtp(formatted, cleanOtp);
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message || 'Invalid or expired verification code. Please try again.');
+    } else {
+      setSuccessMsg('Phone verified successfully! You are now logged in.');
+      setTimeout(() => {
+        onClose();
+      }, 600);
+    }
+  };
+
+  const handleResendPhoneOtp = async () => {
+    if (resendCountdown > 0) return;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const formatted = normalizePhoneNumber(phone, selectedCountry.dialCode);
+    setLoading(true);
+    const { error } = await resendPhoneOtp(formatted);
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message || 'Failed to resend code. Please try again later.');
+    } else {
+      setSuccessMsg(`New verification code sent to ${formatted}!`);
+      setResendCountdown(60);
+    }
+  };
+
   const handleGoogleAuth = async () => {
     setErrorMsg(null);
     setLoading(true);
     const { error } = await signInWithGoogle();
     setLoading(false);
     if (error) {
-      setErrorMsg('Google sign-in is not configured on this Supabase project.');
+      setErrorMsg(error.message || 'Google sign-in could not be initiated.');
     }
   };
 
@@ -260,7 +355,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* 1. SIGN IN SCREEN */}
           {(mode === 'signin' || mode === 'welcome') && (
-            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
+            <form onSubmit={authMethod === 'email' ? handleSignIn : handleSendPhoneOtp} className="flex flex-col gap-4">
               <div className="flex flex-col items-center text-center gap-1 mb-1">
                 <ChromaLogo variant="icon" size="md" />
                 <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
@@ -310,7 +405,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Or Divider */}
-              <div className="relative my-1">
+              <div className="relative my-0.5">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-white/10" />
                 </div>
@@ -319,68 +414,159 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Email Input */}
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
-                  mail
-                </span>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
-                />
-              </div>
-
-              {/* Password Input */}
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
-                  lock
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
-                />
+              {/* Auth Method Selector (Email vs Phone OTP) */}
+              <div className="flex rounded-xl bg-[#111827] p-1 border border-white/10">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white"
+                  onClick={() => {
+                    setAuthMethod('email');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-1.5 text-[12px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authMethod === 'email'
+                      ? 'bg-[#8B5CF6] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  <span className="material-symbols-outlined text-[16px]">mail</span>
+                  <span>Email</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('phone');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-1.5 text-[12px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authMethod === 'phone'
+                      ? 'bg-[#8B5CF6] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">sms</span>
+                  <span>Phone OTP</span>
                 </button>
               </div>
 
-              {/* Forgot Password Link */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setMode('forgot_password')}
-                  className="text-[11px] text-[#94A3B8] hover:text-[#8B5CF6] transition-colors"
-                >
-                  Forgot password?
-                </button>
-              </div>
+              {authMethod === 'email' ? (
+                <>
+                  {/* Email Input */}
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                      mail
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email address"
+                      className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
+                    />
+                  </div>
 
-              {/* Gradient Sign In CTA */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                ) : (
-                  'Sign In'
-                )}
-              </button>
+                  {/* Password Input */}
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                      lock
+                    </span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Forgot Password Link */}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setMode('forgot_password')}
+                      className="text-[11px] text-[#94A3B8] hover:text-[#8B5CF6] transition-colors cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+
+                  {/* Gradient Sign In CTA */}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Phone Input with Country Code */}
+                  <div className="flex gap-2">
+                    <div className="relative w-36 shrink-0">
+                      <select
+                        value={selectedCountry.code}
+                        onChange={(e) => {
+                          const found = SUPPORTED_COUNTRIES.find((c) => c.code === e.target.value);
+                          if (found) setSelectedCountry(found);
+                        }}
+                        className="w-full h-10 px-2.5 rounded-xl bg-[#111827] border border-white/10 text-[12px] text-white focus:outline-none focus:border-[#8B5CF6] cursor-pointer appearance-none"
+                      >
+                        {SUPPORTED_COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code} className="bg-[#111827] text-white">
+                            {c.flag} {c.dialCode} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-2 top-2.5 text-[18px] text-[#94A3B8] pointer-events-none">
+                        expand_more
+                      </span>
+                    </div>
+                    <div className="relative flex-1">
+                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                        call
+                      </span>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="98765 43210"
+                        className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#94A3B8] leading-tight">
+                    We will send a 6-digit one-time password (OTP) via SMS to verify your account.
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                    ) : (
+                      'Send Verification Code'
+                    )}
+                  </button>
+                </>
+              )}
 
               {/* Switch to Sign Up */}
               <div className="text-center text-[12px] text-[#94A3B8] mt-1">
@@ -391,7 +577,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setMode('signup');
                     setErrorMsg(null);
                   }}
-                  className="text-[#8B5CF6] font-bold hover:underline ml-1"
+                  className="text-[#8B5CF6] font-bold hover:underline ml-1 cursor-pointer"
                 >
                   Create Account
                 </button>
@@ -401,7 +587,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* 2. CREATE ACCOUNT SCREEN */}
           {mode === 'signup' && (
-            <form onSubmit={handleSignUp} className="flex flex-col gap-3.5">
+            <form onSubmit={authMethod === 'email' ? handleSignUp : handleSendPhoneOtp} className="flex flex-col gap-3.5">
               <div className="flex flex-col items-center text-center gap-1 mb-1">
                 <ChromaLogo variant="icon" size="md" />
                 <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
@@ -460,6 +646,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
+              {/* Auth Method Selector (Email vs Phone OTP) */}
+              <div className="flex rounded-xl bg-[#111827] p-1 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('email');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-1.5 text-[12px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authMethod === 'email'
+                      ? 'bg-[#8B5CF6] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">mail</span>
+                  <span>Email</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('phone');
+                    setErrorMsg(null);
+                  }}
+                  className={`flex-1 py-1.5 text-[12px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authMethod === 'phone'
+                      ? 'bg-[#8B5CF6] text-white shadow-md'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">sms</span>
+                  <span>Phone OTP</span>
+                </button>
+              </div>
+
               {/* Full Name */}
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
@@ -475,44 +695,86 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 />
               </div>
 
-              {/* Email Address */}
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
-                  mail
-                </span>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
-                />
-              </div>
+              {authMethod === 'email' ? (
+                <>
+                  {/* Email Address */}
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                      mail
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email address"
+                      className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
+                    />
+                  </div>
 
-              {/* Password */}
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
-                  lock
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
-                </button>
-              </div>
+                  {/* Password */}
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                      lock
+                    </span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full h-10 pl-10 pr-10 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-[#94A3B8] hover:text-white cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Phone Input with Country Code */}
+                  <div className="flex gap-2">
+                    <div className="relative w-36 shrink-0">
+                      <select
+                        value={selectedCountry.code}
+                        onChange={(e) => {
+                          const found = SUPPORTED_COUNTRIES.find((c) => c.code === e.target.value);
+                          if (found) setSelectedCountry(found);
+                        }}
+                        className="w-full h-10 px-2.5 rounded-xl bg-[#111827] border border-white/10 text-[12px] text-white focus:outline-none focus:border-[#8B5CF6] cursor-pointer appearance-none"
+                      >
+                        {SUPPORTED_COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code} className="bg-[#111827] text-white">
+                            {c.flag} {c.dialCode} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-2 top-2.5 text-[18px] text-[#94A3B8] pointer-events-none">
+                        expand_more
+                      </span>
+                    </div>
+                    <div className="relative flex-1">
+                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[#94A3B8]">
+                        call
+                      </span>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="98765 43210"
+                        className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#111827] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Terms Checkbox */}
               <label className="flex items-center gap-2 text-[11px] text-[#CBD5E1] cursor-pointer mt-1">
@@ -536,7 +798,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {loading ? (
                   <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
                 ) : (
-                  'Create Account'
+                  authMethod === 'email' ? 'Create Account' : 'Send Verification Code'
                 )}
               </button>
 
@@ -549,7 +811,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setMode('signin');
                     setErrorMsg(null);
                   }}
-                  className="text-[#8B5CF6] font-bold hover:underline ml-1"
+                  className="text-[#8B5CF6] font-bold hover:underline ml-1 cursor-pointer"
                 >
                   Sign In
                 </button>
@@ -642,11 +904,92 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setMode('signin')}
-                className="w-full h-10 mt-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-[13px] transition-colors"
+                className="w-full h-10 mt-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-[13px] transition-colors cursor-pointer"
               >
                 Proceed to Sign In
               </button>
             </div>
+          )}
+
+          {/* 6. VERIFY PHONE OTP SCREEN */}
+          {mode === 'phone_otp' && (
+            <form onSubmit={handleVerifyPhoneOtp} className="flex flex-col gap-4 py-2">
+              <div className="flex flex-col items-center text-center gap-1.5 mb-1">
+                <div className="w-12 h-12 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 text-[#A855F7] flex items-center justify-center shadow-lg shadow-purple-950/30">
+                  <span className="material-symbols-outlined text-[26px]">sms</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
+                  Verify Phone Number
+                </h3>
+                <p className="text-[12px] text-[#94A3B8] max-w-xs leading-relaxed">
+                  Enter the 6-digit verification code sent via SMS to{' '}
+                  <span className="text-white font-semibold font-mono">
+                    {normalizePhoneNumber(phone, selectedCountry.dialCode)}
+                  </span>
+                </p>
+              </div>
+
+              {/* 6-Digit OTP Input */}
+              <div className="flex flex-col items-center gap-2">
+                <input
+                  type="text"
+                  maxLength={6}
+                  autoFocus
+                  required
+                  value={otpToken}
+                  onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••••"
+                  className="w-52 h-12 text-center text-2xl font-bold tracking-[0.4em] rounded-xl bg-[#111827] border border-white/20 text-white placeholder-[#475569] focus:outline-none focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/40 transition-all font-mono"
+                />
+                <span className="text-[11px] text-[#94A3B8]">6-digit SMS verification code</span>
+              </div>
+
+              {/* Resend Countdown / Action */}
+              <div className="flex items-center justify-center gap-1 text-[12px]">
+                {resendCountdown > 0 ? (
+                  <span className="text-[#94A3B8]">
+                    Resend code in <span className="font-semibold text-white">{resendCountdown}s</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendPhoneOtp}
+                    disabled={loading}
+                    className="text-[#8B5CF6] font-semibold hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Resend OTP Code
+                  </button>
+                )}
+              </div>
+
+              {/* Verify CTA */}
+              <button
+                type="submit"
+                disabled={loading || otpToken.length < 6}
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#EC4899] text-white font-bold text-[14px] shadow-lg shadow-purple-950/40 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                ) : (
+                  'Verify & Continue'
+                )}
+              </button>
+
+              {/* Back to Phone Input */}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signin');
+                    setAuthMethod('phone');
+                    setErrorMsg(null);
+                  }}
+                  className="text-[12px] text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                >
+                  ← Edit phone number
+                </button>
+              </div>
+            </form>
           )}
         </div>
       </div>

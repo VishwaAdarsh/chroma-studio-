@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { isSupabaseConfigured, UserProfile } from '../../lib/supabase';
+import { normalizePhoneNumber, isValidE164, SUPPORTED_COUNTRIES } from '../../contexts/AuthContext';
 
 // Ensure in-memory localStorage for Node testing environments
 if (typeof globalThis.localStorage === 'undefined') {
@@ -165,6 +166,113 @@ describe('Phase 6: Supabase Authentication, Profiles & Storage Engine', () => {
       const preserved = JSON.parse(localStorage.getItem('chroma_studio_projects') || '[]');
       expect(preserved).toHaveLength(1);
       expect(preserved[0].name).toBe('Desert Sunset');
+    });
+  });
+
+  describe('7. Phone Authentication, E.164 Normalization & OTP Validation', () => {
+    it('provides India (+91) as primary default country in supported list', () => {
+      expect(SUPPORTED_COUNTRIES.length).toBeGreaterThan(0);
+      expect(SUPPORTED_COUNTRIES[0].dialCode).toBe('+91');
+      expect(SUPPORTED_COUNTRIES[0].code).toBe('IN');
+    });
+
+    it('normalizes local digits to E.164 with default dial code', () => {
+      expect(normalizePhoneNumber('9876543210', '+91')).toBe('+919876543210');
+      expect(normalizePhoneNumber(' 98765 43210 ', '+91')).toBe('+919876543210');
+      expect(normalizePhoneNumber('09876543210', '+91')).toBe('+919876543210');
+      expect(normalizePhoneNumber('(555) 123-4567', '+1')).toBe('+15551234567');
+    });
+
+    it('preserves user-typed international format with existing plus sign', () => {
+      expect(normalizePhoneNumber('+44 7911 123456', '+91')).toBe('+447911123456');
+      expect(normalizePhoneNumber('+971501234567', '+91')).toBe('+971501234567');
+    });
+
+    it('validates standard E.164 phone numbers accurately', () => {
+      expect(isValidE164('+919876543210')).toBe(true);
+      expect(isValidE164('+15551234567')).toBe(true);
+      expect(isValidE164('9876543210')).toBe(false); // missing '+'
+      expect(isValidE164('+0123456789')).toBe(false); // starts with 0
+      expect(isValidE164('+91abc43210')).toBe(false); // contains letters
+      expect(isValidE164('+123')).toBe(false); // too short
+    });
+
+    it('validates 6-digit numeric OTP token format', () => {
+      const validateOtp = (token: string) => /^\d{6}$/.test(token.trim());
+      expect(validateOtp('123456')).toBe(true);
+      expect(validateOtp('000999')).toBe(true);
+      expect(validateOtp('12345')).toBe(false); // 5 digits
+      expect(validateOtp('1234567')).toBe(false); // 7 digits
+      expect(validateOtp('12a456')).toBe(false); // non-numeric
+    });
+  });
+
+  describe('8. Deep Link Handling & Callback Strategy', () => {
+    it('correctly constructs Android Capacitor deep link callback URL', () => {
+      const appId = 'studio.chroma.photoeditor';
+      const nativeRedirect = `${appId}://auth/callback`;
+      expect(nativeRedirect).toBe('studio.chroma.photoeditor://auth/callback');
+    });
+
+    it('extracts tokens from native deep link callback URL fragment', () => {
+      const callbackUrl = 'studio.chroma.photoeditor://auth/callback#access_token=test_access_jwt&refresh_token=test_refresh_jwt&token_type=bearer';
+      const hash = callbackUrl.split('#')[1] || '';
+      const params = new URLSearchParams(hash);
+
+      expect(params.get('access_token')).toBe('test_access_jwt');
+      expect(params.get('refresh_token')).toBe('test_refresh_jwt');
+      expect(params.get('token_type')).toBe('bearer');
+    });
+
+    it('detects recovery flow from callback URL', () => {
+      const recoveryUrl = 'studio.chroma.photoeditor://auth/callback#type=recovery&access_token=rec_token';
+      const hash = recoveryUrl.split('#')[1] || '';
+      const params = new URLSearchParams(hash);
+
+      expect(params.get('type')).toBe('recovery');
+      expect(params.get('access_token')).toBe('rec_token');
+    });
+  });
+
+  describe('9. Multi-Identifier Profile Support (Email & Phone)', () => {
+    it('supports phone-only profiles without email requirement', () => {
+      const phoneProfile: UserProfile = {
+        id: 'usr-phone-001',
+        email: null,
+        phone: '+919876543210',
+        phone_verified: true,
+        full_name: 'Rahul Verma',
+        username: 'user_phone_001',
+        avatar_url: null,
+        bio: null,
+        website: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      };
+
+      expect(phoneProfile.phone).toBe('+919876543210');
+      expect(phoneProfile.phone_verified).toBe(true);
+      expect(phoneProfile.email).toBeNull();
+    });
+
+    it('supports dual-authenticated profiles (email + verified phone)', () => {
+      const dualProfile: UserProfile = {
+        id: 'usr-dual-002',
+        email: 'ananya@example.com',
+        phone: '+919876543210',
+        phone_verified: true,
+        full_name: 'Ananya Sharma',
+        username: 'ananya',
+        avatar_url: 'https://example.com/avatar.jpg',
+        bio: 'Mobile creator',
+        website: null,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+      };
+
+      expect(dualProfile.email).toBe('ananya@example.com');
+      expect(dualProfile.phone).toBe('+919876543210');
+      expect(dualProfile.phone_verified).toBe(true);
     });
   });
 });

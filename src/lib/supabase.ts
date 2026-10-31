@@ -2,7 +2,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export interface UserProfile {
   id: string;
-  email?: string;
+  email?: string | null;
+  phone?: string | null;
+  phone_verified?: boolean;
   full_name: string | null;
   username: string | null;
   avatar_url: string | null;

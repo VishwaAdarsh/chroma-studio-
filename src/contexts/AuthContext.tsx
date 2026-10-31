@@ -1,6 +1,46 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+
+export interface PhoneAuthCountry {
+  name: string;
+  code: string;
+  dialCode: string;
+  flag: string;
+}
+
+export const SUPPORTED_COUNTRIES: PhoneAuthCountry[] = [
+  { name: 'India', code: 'IN', dialCode: '+91', flag: '🇮🇳' },
+  { name: 'United States', code: 'US', dialCode: '+1', flag: '🇺🇸' },
+  { name: 'United Kingdom', code: 'GB', dialCode: '+44', flag: '🇬🇧' },
+  { name: 'United Arab Emirates', code: 'AE', dialCode: '+971', flag: '🇦🇪' },
+  { name: 'Canada', code: 'CA', dialCode: '+1', flag: '🇨🇦' },
+  { name: 'Australia', code: 'AU', dialCode: '+61', flag: '🇦🇺' },
+  { name: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬' },
+  { name: 'Germany', code: 'DE', dialCode: '+49', flag: '🇩🇪' },
+  { name: 'France', code: 'FR', dialCode: '+33', flag: '🇫🇷' },
+  { name: 'Japan', code: 'JP', dialCode: '+81', flag: '🇯🇵' },
+];
+
+/**
+ * Normalizes phone numbers to standard E.164 format (+[country][number])
+ */
+export function normalizePhoneNumber(rawNumber: string, defaultDialCode = '+91'): string {
+  const cleaned = rawNumber.replace(/[\s\-\(\)\.]/g, '');
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  // Strip leading 0 if present (e.g. 09876543210 in India)
+  const stripped = cleaned.replace(/^0+/, '');
+  const prefix = defaultDialCode.startsWith('+') ? defaultDialCode : `+${defaultDialCode}`;
+  return `${prefix}${stripped}`;
+}
+
+export function isValidE164(phone: string): boolean {
+  return /^\+[1-9]\d{6,14}$/.test(phone);
+}
 
 interface AuthContextType {
   user: User | null;
@@ -14,6 +54,11 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, username?: string) => Promise<{ error: Error | null; needsEmailVerification: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithPhone: (phone: string, fullName?: string) => Promise<{ error: Error | null }>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<{ error: Error | null }>;
+  resendPhoneOtp: (phone: string) => Promise<{ error: Error | null }>;
+  linkPhone: (phone: string) => Promise<{ error: Error | null }>;
+  verifyPhoneUpdate: (phone: string, token: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
@@ -61,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Fetch or initialize profile record
-  const fetchProfile = useCallback(async (userId: string, userEmail?: string, userMeta?: any) => {
+  const fetchProfile = useCallback(async (userId: string, userEmail?: string, userMeta?: any, userPhone?: string) => {
     if (!supabase) return;
     setProfileLoading(true);
     try {
@@ -82,15 +127,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const fallbackProfile: UserProfile = {
           id: userId,
           email: userEmail,
+          phone: userPhone || null,
+          phone_verified: Boolean(userPhone),
           full_name: userMeta?.full_name || userMeta?.name || null,
-          username: userMeta?.username || null,
+          username: userMeta?.username || (userEmail ? userEmail.split('@')[0] : `user_${userId.slice(0, 8)}`),
           avatar_url: userMeta?.avatar_url || null,
           bio: null,
           website: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-        // Attempt insert if permitted
+
         try {
           const { data: inserted } = await supabase
             .from('profiles')
@@ -115,11 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
-      await fetchProfile(user.id, user.email, user.user_metadata);
+      await fetchProfile(user.id, user.email, user.user_metadata, user.phone);
     }
   }, [user, fetchProfile]);
 
-  // Initial session restoration & auth state subscription
+  // Initial session restoration, deep link listeners & auth state subscription
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
@@ -136,6 +183,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Handle Native Android App Deep Links via Capacitor
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appUrlOpen', async (data) => {
+        if (!data.url) return;
+        try {
+          // If the URL contains an OAuth or recovery hash, parse and establish session
+          if (data.url.includes('#access_token') || data.url.includes('access_token=')) {
+            const urlObj = new URL(data.url);
+            const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            if (accessToken && refreshToken) {
+              await supabase!.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Error handling native deep link URL:', err);
+        }
+      });
+    }
+
     supabase.auth
       .getSession()
       .then(({ data: { session: initialSession } }) => {
@@ -147,7 +218,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchProfile(
             initialSession.user.id,
             initialSession.user.email,
-            initialSession.user.user_metadata
+            initialSession.user.user_metadata,
+            initialSession.user.phone
           );
         }
       })
@@ -175,7 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           localStorage.removeItem(GUEST_STORAGE_KEY);
         } catch {}
-        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
+        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata, currentUser.phone);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
       }
@@ -187,7 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchProfile]);
 
-  // Sign Up
+  // 1. Email Sign Up
   const signUp = async (
     email: string,
     password: string,
@@ -199,6 +271,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      const redirectUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -207,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             full_name: fullName,
             username: username || email.split('@')[0],
           },
-          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          emailRedirectTo: redirectUrl,
         },
       });
 
@@ -223,7 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign In
+  // 2. Email Sign In
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     if (!supabase) {
       return { error: new Error('Supabase is not configured') };
@@ -245,17 +319,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign In with Google
+  // 3. Google OAuth Login / Signup
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     if (!supabase) {
       return { error: new Error('Supabase is not configured') };
     }
 
     try {
+      const isNative = Capacitor.isNativePlatform();
+      const redirectTo = isNative
+        ? 'studio.chroma.photoeditor://auth/callback'
+        : (typeof window !== 'undefined' ? window.location.origin : undefined);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -265,7 +348,129 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Sign Out
+  // 4. Phone Number Authentication (Send SMS OTP)
+  const signInWithPhone = async (phone: string, fullName?: string): Promise<{ error: Error | null }> => {
+    if (!supabase) {
+      return { error: new Error('Supabase is not configured') };
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: {
+          channel: 'sms',
+          data: fullName ? { full_name: fullName } : undefined,
+        },
+      });
+
+      return { error: error || null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
+  // 5. Verify Phone SMS OTP
+  const verifyPhoneOtp = async (phone: string, token: string): Promise<{ error: Error | null }> => {
+    if (!supabase) {
+      return { error: new Error('Supabase is not configured') };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token: token.trim(),
+        type: 'sms',
+      });
+
+      if (error) {
+        return { error };
+      }
+
+      // If verified successfully and profile exists, ensure phone_verified is marked in public.profiles
+      if (data.user?.id) {
+        await supabase
+          .from('profiles')
+          .update({
+            phone,
+            phone_verified: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', data.user.id);
+
+        await fetchProfile(data.user.id, data.user.email, data.user.user_metadata, phone);
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
+  // 6. Resend Phone OTP
+  const resendPhoneOtp = async (phone: string): Promise<{ error: Error | null }> => {
+    if (!supabase) {
+      return { error: new Error('Supabase is not configured') };
+    }
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'sms',
+        phone,
+      });
+
+      return { error: error || null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
+  // 7. Link / Update Phone for Authenticated User
+  const linkPhone = async (phone: string): Promise<{ error: Error | null }> => {
+    if (!supabase || !user) {
+      return { error: new Error('User not authenticated') };
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        phone,
+      });
+
+      return { error: error || null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
+  // 8. Verify Phone Number Update
+  const verifyPhoneUpdate = async (phone: string, token: string): Promise<{ error: Error | null }> => {
+    if (!supabase || !user) {
+      return { error: new Error('User not authenticated') };
+    }
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone,
+        token: token.trim(),
+        type: 'phone_change',
+      });
+
+      if (error) {
+        return { error };
+      }
+
+      // Update profile
+      await updateProfile({
+        phone,
+        phone_verified: true,
+      });
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
+  // 9. Sign Out
   const signOut = async (): Promise<void> => {
     if (supabase) {
       try {
@@ -280,15 +485,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGuestMode(true);
   };
 
-  // Password Recovery (Request Reset Email)
+  // 10. Password Recovery (Request Reset Email)
   const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
     if (!supabase) {
       return { error: new Error('Supabase is not configured') };
     }
 
     try {
+      const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}#type=recovery` : undefined;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}#type=recovery` : undefined,
+        redirectTo: redirectUrl,
       });
       return { error: error || null };
     } catch (err: any) {
@@ -296,7 +502,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Update Password (from recovery or account settings)
+  // 11. Update Password
   const updatePassword = async (newPassword: string): Promise<{ error: Error | null }> => {
     if (!supabase) {
       return { error: new Error('Supabase is not configured') };
@@ -315,7 +521,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Update Profile
+  // 12. Update Profile
   const updateProfile = async (updates: Partial<UserProfile>): Promise<{ error: Error | null }> => {
     if (!supabase || !user) {
       return { error: new Error('User not authenticated') };
@@ -345,20 +551,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Upload Avatar to Supabase Storage bucket 'avatars'
+  // 13. Upload Avatar
   const uploadAvatar = async (file: File): Promise<{ url: string | null; error: Error | null }> => {
     if (!supabase || !user) {
       return { url: null, error: new Error('User not authenticated') };
     }
 
     try {
-      // Validate file format
       const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
       if (!validTypes.includes(file.type)) {
         return { url: null, error: new Error('Only JPG, PNG, and WebP images are supported.') };
       }
 
-      // Max file size 5MB
       if (file.size > 5 * 1024 * 1024) {
         return { url: null, error: new Error('Avatar image must be under 5MB.') };
       }
@@ -366,7 +570,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fileExt = file.name.split('.').pop() || 'jpg';
       const filePath = `${user.id}/avatar_${Date.now()}.${fileExt}`;
 
-      // Upload to 'avatars' bucket
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -378,12 +581,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { url: null, error: uploadError };
       }
 
-      // Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
-      // Save to profile
       await updateProfile({ avatar_url: publicUrl });
 
       return { url: publicUrl, error: null };
@@ -404,6 +605,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithPhone,
+    verifyPhoneOtp,
+    resendPhoneOtp,
+    linkPhone,
+    verifyPhoneUpdate,
     signOut,
     resetPassword,
     updatePassword,

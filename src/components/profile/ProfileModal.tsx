@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, SUPPORTED_COUNTRIES, normalizePhoneNumber, isValidE164 } from '../../contexts/AuthContext';
 import { StorageService } from '../../services/storage';
 
 interface ProfileModalProps {
@@ -22,6 +22,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     updateProfile,
     uploadAvatar,
     updatePassword,
+    linkPhone,
+    verifyPhoneUpdate,
+    refreshProfile,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'subscription' | 'storage' | 'preferences' | 'security' | 'notifications'>('profile');
@@ -35,6 +38,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   // Password state
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Phone Linking State
+  const [phoneToLink, setPhoneToLink] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(SUPPORTED_COUNTRIES[0]);
+  const [phoneOtpStep, setPhoneOtpStep] = useState<'idle' | 'otp_sent'>('idle');
+  const [phoneOtpToken, setPhoneOtpToken] = useState('');
 
   // Async states
   const [loading, setLoading] = useState(false);
@@ -69,6 +78,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const displayName = profile?.full_name || fullName || 'Ananya Sharma';
   const displayEmail = user?.email || 'ananya@example.com';
+  const displayPhone = profile?.phone || user?.phone || null;
+  const isPhoneVerified = !!(profile?.phone_verified || (user as any)?.phone_confirmed_at);
   const avatarUrl =
     profile?.avatar_url ||
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
@@ -136,6 +147,52 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setStatusMsg({ type: 'success', text: 'Password changed successfully.' });
       setNewPassword('');
       setConfirmPassword('');
+    }
+  };
+
+  const handleInitiatePhoneLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMsg(null);
+    const formatted = normalizePhoneNumber(phoneToLink, selectedCountry.dialCode);
+    if (!isValidE164(formatted)) {
+      setStatusMsg({ type: 'error', text: `Please enter a valid phone number (e.g. ${selectedCountry.dialCode} 9876543210).` });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await linkPhone(formatted);
+    setLoading(false);
+
+    if (error) {
+      setStatusMsg({ type: 'error', text: error.message || 'Failed to send phone verification OTP.' });
+    } else {
+      setStatusMsg({ type: 'success', text: `Verification code sent to ${formatted}!` });
+      setPhoneOtpStep('otp_sent');
+    }
+  };
+
+  const handleVerifyPhoneLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMsg(null);
+    const cleanOtp = phoneOtpToken.replace(/\D/g, '');
+    if (cleanOtp.length < 6) {
+      setStatusMsg({ type: 'error', text: 'Please enter the complete 6-digit OTP code.' });
+      return;
+    }
+
+    const formatted = normalizePhoneNumber(phoneToLink, selectedCountry.dialCode);
+    setLoading(true);
+    const { error } = await verifyPhoneUpdate(formatted, cleanOtp);
+    setLoading(false);
+
+    if (error) {
+      setStatusMsg({ type: 'error', text: error.message || 'Invalid or expired verification code.' });
+    } else {
+      setStatusMsg({ type: 'success', text: 'Phone number linked and verified successfully!' });
+      setPhoneOtpStep('idle');
+      setPhoneToLink('');
+      setPhoneOtpToken('');
+      await refreshProfile();
     }
   };
 
@@ -298,6 +355,37 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       <div className="flex items-center justify-between pb-2 border-b border-white/5">
                         <span className="text-[#94A3B8]">Email Address</span>
                         <span className="font-semibold text-white">{displayEmail}</span>
+                      </div>
+                      <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                        <span className="text-[#94A3B8]">Phone Number</span>
+                        {displayPhone ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-white font-mono">{displayPhone}</span>
+                            {isPhoneVerified ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                                <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                                Verified
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('security')}
+                                className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-semibold hover:bg-amber-500/30 cursor-pointer"
+                              >
+                                Verify Now
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('security')}
+                            className="text-[#8B5CF6] hover:underline text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">add</span>
+                            Link Phone
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center justify-between pb-2 border-b border-white/5">
                         <span className="text-[#94A3B8]">Member Since</span>
@@ -476,32 +564,125 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
             {/* TAB 5: SECURITY */}
             {activeTab === 'security' && (
-              <form onSubmit={handleUpdatePassword} className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-3">
-                <h4 className="font-bold text-[15px] text-white">Update Password</h4>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New password (min 6 chars)"
-                  className="w-full h-10 px-3 rounded-xl bg-[#0D1424] border border-white/10 text-[13px] text-white"
-                />
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="w-full h-10 px-3 rounded-xl bg-[#0D1424] border border-white/10 text-[13px] text-white"
-                />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="self-start px-4 py-2 rounded-xl bg-[#8B5CF6] text-white font-bold text-[12px]"
-                >
-                  Update Password
-                </button>
-              </form>
+              <div className="flex flex-col gap-4">
+                {/* Phone Verification Card */}
+                <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-[15px] text-white">Phone Verification</h4>
+                      <p className="text-[12px] text-[#94A3B8]">
+                        Secure your account with SMS OTP authentication.
+                      </p>
+                    </div>
+                    {displayPhone && isPhoneVerified && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[11px] font-bold border border-emerald-500/30">
+                        <span className="material-symbols-outlined text-[14px]">verified</span>
+                        Verified
+                      </span>
+                    )}
+                  </div>
+
+                  {phoneOtpStep === 'idle' ? (
+                    <form onSubmit={handleInitiatePhoneLink} className="flex flex-col gap-3">
+                      <div className="flex gap-2">
+                        <div className="relative w-36 shrink-0">
+                          <select
+                            value={selectedCountry.code}
+                            onChange={(e) => {
+                              const found = SUPPORTED_COUNTRIES.find((c) => c.code === e.target.value);
+                              if (found) setSelectedCountry(found);
+                            }}
+                            className="w-full h-10 px-2.5 rounded-xl bg-[#0D1424] border border-white/10 text-[12px] text-white focus:outline-none focus:border-[#8B5CF6] cursor-pointer appearance-none"
+                          >
+                            {SUPPORTED_COUNTRIES.map((c) => (
+                              <option key={c.code} value={c.code} className="bg-[#111827] text-white">
+                                {c.flag} {c.dialCode} ({c.code})
+                              </option>
+                            ))}
+                          </select>
+                          <span className="material-symbols-outlined absolute right-2 top-2.5 text-[18px] text-[#94A3B8] pointer-events-none">
+                            expand_more
+                          </span>
+                        </div>
+                        <input
+                          type="tel"
+                          required
+                          value={phoneToLink}
+                          onChange={(e) => setPhoneToLink(e.target.value)}
+                          placeholder={displayPhone || "98765 43210"}
+                          className="flex-1 h-10 px-3 rounded-xl bg-[#0D1424] border border-white/10 text-[13px] text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#8B5CF6]"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={loading || !phoneToLink.trim()}
+                        className="self-start px-4 py-2 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-bold text-[12px] transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {loading ? 'Sending SMS...' : displayPhone ? 'Update & Send OTP' : 'Send Verification OTP'}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleVerifyPhoneLink} className="flex flex-col gap-3">
+                      <p className="text-[12px] text-[#94A3B8]">
+                        Enter the 6-digit code sent to <span className="font-mono text-white">{normalizePhoneNumber(phoneToLink, selectedCountry.dialCode)}</span>
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          maxLength={6}
+                          required
+                          value={phoneOtpToken}
+                          onChange={(e) => setPhoneOtpToken(e.target.value.replace(/\D/g, ''))}
+                          placeholder="••••••"
+                          className="w-40 h-10 text-center font-mono text-lg tracking-[0.3em] font-bold rounded-xl bg-[#0D1424] border border-white/10 text-white focus:outline-none focus:border-[#8B5CF6]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={loading || phoneOtpToken.length < 6}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-bold text-[12px] disabled:opacity-50 cursor-pointer"
+                        >
+                          Verify & Link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPhoneOtpStep('idle')}
+                          className="text-[12px] text-[#94A3B8] hover:text-white cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+
+                {/* Password Update Form */}
+                <form onSubmit={handleUpdatePassword} className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-3">
+                  <h4 className="font-bold text-[15px] text-white">Update Password</h4>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password (min 6 chars)"
+                    className="w-full h-10 px-3 rounded-xl bg-[#0D1424] border border-white/10 text-[13px] text-white"
+                  />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full h-10 px-3 rounded-xl bg-[#0D1424] border border-white/10 text-[13px] text-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="self-start px-4 py-2 rounded-xl bg-[#8B5CF6] text-white font-bold text-[12px] cursor-pointer disabled:opacity-50"
+                  >
+                    Update Password
+                  </button>
+                </form>
+              </div>
             )}
 
             {/* TAB 6: NOTIFICATIONS */}
