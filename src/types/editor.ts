@@ -94,6 +94,14 @@ export interface PhotoTemplate {
 
 export type Preset = PhotoTemplate;
 
+export type ProjectSyncStatus =
+  | 'local_only'
+  | 'pending_upload'
+  | 'syncing'
+  | 'synced'
+  | 'conflict'
+  | 'failed';
+
 export interface Project {
   id: string;
   name: string;
@@ -112,6 +120,14 @@ export interface Project {
   curves: ToneCurves;
   wheels: ColorWheels;
   thumbnail?: string;
+  // Cloud Sync Metadata
+  syncStatus?: ProjectSyncStatus;
+  cloudVersion?: number;
+  cloudUpdatedAt?: number;
+  lastSyncedAt?: number;
+  userId?: string;
+  syncError?: string;
+  thumbnailPath?: string;
 }
 
 export type EditorTab = 'looks' | 'adjust' | 'crop' | 'colorlab' | 'curves' | 'effects';

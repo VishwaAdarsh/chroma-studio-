@@ -1,4 +1,5 @@
 import { PhotoTemplate, Project } from '../types/editor';
+import { generateUUID } from './cloudProjectService';
 
 const DB_NAME = 'chroma_studio_db';
 const DB_VERSION = 1;
@@ -313,8 +314,14 @@ export class StorageService {
         const projectStore = tx.objectStore(STORE_PROJECTS);
         const imageStore = tx.objectStore(STORE_IMAGES);
 
+        const syncStatus =
+          project.syncStatus === 'synced'
+            ? 'pending_upload'
+            : project.syncStatus || 'local_only';
+
         const projectRecord: Project = {
           ...project,
+          syncStatus,
           imageSrc: runtimeSrc && !runtimeSrc.startsWith('data:image') ? runtimeSrc : '',
           updatedAt: Date.now(),
         };
@@ -337,6 +344,14 @@ export class StorageService {
       } else {
         this.cachedProjects.unshift({ ...project, updatedAt: Date.now() });
       }
+
+      // Enqueue in background SyncEngine if project is cloud-linked or pending upload
+      try {
+        const { syncEngine } = await import('./syncEngine');
+        if (project.userId || project.syncStatus === 'pending_upload') {
+          syncEngine.enqueue(project.id);
+        }
+      } catch {}
     } catch (e) {
       console.error('Failed to save project to IndexedDB', e);
     }
@@ -347,6 +362,7 @@ export class StorageService {
    */
   public static async deleteProject(projectId: string): Promise<void> {
     try {
+      const projToDelete = this.cachedProjects.find((p) => p.id === projectId);
       const db = await this.openDB();
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction([STORE_PROJECTS, STORE_IMAGES], 'readwrite');
@@ -356,6 +372,14 @@ export class StorageService {
         tx.onerror = () => reject(tx.error);
       });
       this.cachedProjects = this.cachedProjects.filter((p) => p.id !== projectId);
+
+      // Soft delete from cloud if project was synced
+      if (projToDelete?.userId) {
+        try {
+          const { CloudProjectService } = await import('./cloudProjectService');
+          CloudProjectService.softDeleteProject(projectId, projToDelete.userId).catch(() => {});
+        } catch {}
+      }
     } catch (e) {
       console.error('Failed to delete project from IndexedDB', e);
     }
@@ -372,7 +396,7 @@ export class StorageService {
 
       const duplicated: Project = {
         ...JSON.parse(JSON.stringify(existing)),
-        id: 'proj-' + Date.now(),
+        id: generateUUID(),
         name: `${existing.name} (Copy)`,
         createdAt: Date.now(),
         updatedAt: Date.now(),

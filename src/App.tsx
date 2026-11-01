@@ -42,6 +42,7 @@ import { PRESETS } from './data/presets';
 import { SAMPLE_IMAGES, SampleImage } from './data/samples';
 import { blendPresetAdjustments, processImage } from './engine/pipeline';
 import { AutosaveSession, StorageService } from './services/storage';
+import { generateUUID } from './services/cloudProjectService';
 import {
   AdjustmentParameters,
   ColorWheels,
@@ -109,7 +110,7 @@ function ChromaStudioApp() {
   const [activeCarouselProject, setActiveCarouselProject] = useState<CarouselProject | undefined>();
 
   // Active Project Data
-  const [projectId, setProjectId] = useState<string>('proj-' + Date.now());
+  const [projectId, setProjectId] = useState<string>(() => generateUUID());
   const [projectName, setProjectName] = useState<string>('IMG_4829_RAW.DNG');
   const [imageSrc, setImageSrc] = useState<string>('');
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number }>({
@@ -356,7 +357,7 @@ function ChromaStudioApp() {
 
   // Handlers for starting with Sample
   const handleStartWithSample = (sample: SampleImage) => {
-    setProjectId('proj-' + Date.now());
+    setProjectId(generateUUID());
     setAdjustments(DEFAULT_ADJUSTMENTS);
     setActivePresetId(null);
     setPresetIntensity(100);
@@ -390,7 +391,7 @@ function ChromaStudioApp() {
     reader.onload = (e) => {
       const src = e.target?.result as string;
       if (src) {
-        setProjectId('proj-' + Date.now());
+        setProjectId(generateUUID());
         setAdjustments(DEFAULT_ADJUSTMENTS);
         setActivePresetId(null);
         setPresetIntensity(100);
@@ -462,6 +463,7 @@ function ChromaStudioApp() {
       geometry,
       curves,
       wheels,
+      userId: user?.id,
     };
     await StorageService.saveProject(project);
     const updated = await StorageService.getProjects();

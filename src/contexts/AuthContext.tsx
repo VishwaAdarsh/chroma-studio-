@@ -3,6 +3,7 @@ import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import { syncEngine } from '../services/syncEngine';
 
 export interface PhoneAuthCountry {
   name: string;
@@ -363,6 +364,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
+
+  // Connect user session to background SyncEngine
+  useEffect(() => {
+    syncEngine.setUser(user);
+  }, [user]);
 
   // 1. Email Sign Up
   const signUp = async (

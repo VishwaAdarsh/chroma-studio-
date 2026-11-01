@@ -1,3 +1,5 @@
+import type { ProjectSyncStatus } from './editor';
+
 export type ProjectType = 'photo' | 'template' | 'collage' | 'carousel';
 
 export type ElementType = 'image' | 'text' | 'shape' | 'frame';
@@ -117,6 +119,14 @@ export interface DesignProject {
   createdAt: number;
   updatedAt: number;
   thumbnail?: string;
+  // Cloud Sync Metadata
+  syncStatus?: ProjectSyncStatus;
+  cloudVersion?: number;
+  cloudUpdatedAt?: number;
+  lastSyncedAt?: number;
+  userId?: string;
+  syncError?: string;
+  thumbnailPath?: string;
 }
 
 // ---------------- COLLAGE STUDIO ---------------- //
@@ -163,6 +173,14 @@ export interface CollageProject {
   createdAt: number;
   updatedAt: number;
   thumbnail?: string;
+  // Cloud Sync Metadata
+  syncStatus?: ProjectSyncStatus;
+  cloudVersion?: number;
+  cloudUpdatedAt?: number;
+  lastSyncedAt?: number;
+  userId?: string;
+  syncError?: string;
+  thumbnailPath?: string;
 }
 
 // ---------------- CAROUSEL STUDIO ---------------- //
@@ -197,6 +215,14 @@ export interface CarouselProject {
   createdAt: number;
   updatedAt: number;
   thumbnail?: string;
+  // Cloud Sync Metadata
+  syncStatus?: ProjectSyncStatus;
+  cloudVersion?: number;
+  cloudUpdatedAt?: number;
+  lastSyncedAt?: number;
+  userId?: string;
+  syncError?: string;
+  thumbnailPath?: string;
 }
 
 // Unified project representation
