@@ -50,7 +50,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Sheet / Dropdown Container matching reference screenshot */}
-      <div className="relative z-10 w-full sm:w-80 sm:mt-12 bg-[#0D1424] border border-white/10 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl shadow-black/60 flex flex-col gap-4 text-white animate-in slide-in-from-bottom-6 sm:slide-in-from-top-4 duration-200">
+      <div className="relative z-10 w-full sm:w-80 sm:mt-12 bg-[#0D1424] border border-white/10 rounded-t-3xl sm:rounded-3xl p-4 sm:p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-2xl shadow-black/60 flex flex-col gap-4 text-white animate-in slide-in-from-bottom-6 sm:slide-in-from-top-4 duration-200">
         {/* Mobile Drag Indicator */}
         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto sm:hidden mb-1" />
 
@@ -103,7 +103,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
         <div className="flex flex-col gap-1">
           <button
             onClick={handleGuardedProfileClick}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer touch-manipulation"
           >
             <span className="material-symbols-outlined text-[19px] text-[#94A3B8]">person</span>
             <span>My Account</span>
@@ -111,7 +111,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
 
           <button
             onClick={handleGuardedProfileClick}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer touch-manipulation"
           >
             <span className="material-symbols-outlined text-[19px] text-[#94A3B8]">credit_card</span>
             <span>Subscription</span>
@@ -119,7 +119,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
 
           <button
             onClick={handleGuardedProfileClick}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer touch-manipulation"
           >
             <span className="material-symbols-outlined text-[19px] text-[#94A3B8]">cloud_sync</span>
             <span>Cloud Sync</span>
@@ -130,7 +130,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
               onClose();
               onOpenPreferences();
             }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer touch-manipulation"
           >
             <span className="material-symbols-outlined text-[19px] text-[#94A3B8]">tune</span>
             <span>Preferences</span>
@@ -141,7 +141,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
               window.open('https://github.com', '_blank');
               onClose();
             }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#CBD5E1] hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer touch-manipulation"
           >
             <span className="material-symbols-outlined text-[19px] text-[#94A3B8]">help</span>
             <span>Help & Support</span>
@@ -153,7 +153,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
           {user ? (
             <button
               onClick={handleSignOutClick}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#EF4444] hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#EF4444] hover:bg-red-500/10 transition-colors text-left cursor-pointer touch-manipulation"
             >
               <span className="material-symbols-outlined text-[19px] text-[#EF4444]">logout</span>
               <span>Sign Out</span>
@@ -164,7 +164,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
                 onClose();
                 onOpenAuth();
               }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#8B5CF6] hover:bg-purple-500/10 transition-colors text-left cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl min-h-[44px] text-[13px] font-medium text-[#8B5CF6] hover:bg-purple-500/10 transition-colors text-left cursor-pointer touch-manipulation"
             >
               <span className="material-symbols-outlined text-[19px] text-[#8B5CF6]">login</span>
               <span>Sign In / Register</span>

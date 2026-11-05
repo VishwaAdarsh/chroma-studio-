@@ -25,14 +25,14 @@ export const ToolNavigation: React.FC<ToolNavigationProps> = ({
 
   return (
     <div className="w-full bg-[#0D1424]/95 backdrop-blur-2xl rounded-2xl p-1 border border-white/10 shadow-lg pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
-      <div className="flex sm:grid sm:grid-cols-10 items-center overflow-x-auto no-scrollbar scroll-smooth justify-between">
+      <div className="flex sm:grid sm:grid-cols-10 items-center overflow-x-auto no-scrollbar scroll-smooth justify-between touch-scroll-x touch-pan-x">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`flex flex-col items-center justify-center py-2 px-2.5 sm:px-1 min-w-[56px] sm:min-w-0 transition-all relative group active:scale-95 cursor-pointer ${
+              className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-2 sm:px-1 min-w-[62px] sm:min-w-0 transition-all relative group active:scale-95 cursor-pointer touch-manipulation ${
                 isActive ? 'text-[#8B5CF6]' : 'text-[#94A3B8] hover:text-white'
               }`}
             >

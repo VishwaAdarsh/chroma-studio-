@@ -1527,7 +1527,7 @@ function ChromaStudioApp() {
       case 'editor':
       default:
         return (
-          <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white overflow-hidden">
+          <div className="min-h-screen min-h-[100dvh] h-[100dvh] w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white overflow-hidden">
             {/* Top Header */}
             <Header
               projectName={projectName}
@@ -1556,7 +1556,7 @@ function ChromaStudioApp() {
             />
 
             {/* Main Studio Canvas Viewport */}
-            <main className="flex-1 w-full max-w-5xl mx-auto pt-16 pb-2 px-3 flex flex-col justify-between gap-3">
+            <main className="flex-1 w-full max-w-5xl mx-auto pt-[calc(3.75rem+env(safe-area-inset-top,0px))] pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] px-2.5 sm:px-3 flex flex-col justify-between gap-2.5 sm:gap-3 overflow-hidden">
               {/* Canvas Surface */}
               <CanvasView
                 canvasRef={canvasRef}
@@ -1592,7 +1592,7 @@ function ChromaStudioApp() {
               />
 
               {/* Active Tool Panel Container */}
-              <div className="w-full flex flex-col gap-2 min-h-[140px]">
+              <div className="w-full flex flex-col gap-2 min-h-[120px] max-h-[38vh] sm:max-h-[44vh] overflow-y-auto no-scrollbar overscroll-contain">
                 {activeTab === 'looks' && (
                   <LooksPanel
                     activePresetId={activePresetId}

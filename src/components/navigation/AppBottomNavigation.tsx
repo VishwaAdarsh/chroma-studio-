@@ -38,7 +38,7 @@ export const AppBottomNavigation: React.FC<AppBottomNavigationProps> = ({
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl min-w-[54px] min-h-[44px] transition-all duration-200 active:scale-90 cursor-pointer touch-manipulation ${
                 isActive
                   ? 'text-[#8B5CF6]'
                   : 'text-[#94A3B8] hover:text-[#CBD5E1]'

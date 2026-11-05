@@ -49,7 +49,25 @@
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
+}
+
+/* Mobile Touch & Safe Area Utilities */
+.touch-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+
+.touch-target-44 {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.touch-target-36 {
+  min-width: 36px;
+  min-height: 36px;
 }
 
 /* Transparent Alpha Checkerboard Pattern for Cutout & Background Removal */

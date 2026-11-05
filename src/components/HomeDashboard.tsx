@@ -81,7 +81,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
 
   return (
-    <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white pb-20 sm:pb-8 font-sans">
+    <div className="min-h-screen w-full bg-[#070B14] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#8B5CF6]/40 selection:text-white pb-28 sm:pb-8 font-sans">
       {/* Hidden File Input for Photo Editor Trigger */}
       <input
         type="file"
@@ -92,7 +92,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       />
 
       {/* TOP APP BAR matching reference screenshot */}
-      <header className="sticky top-0 w-full z-40 bg-[#070B14]/90 backdrop-blur-2xl border-b border-white/10 shadow-lg">
+      <header className="sticky top-0 w-full z-40 bg-[#070B14]/90 backdrop-blur-2xl border-b border-white/10 shadow-lg pt-[env(safe-area-inset-top,0px)]">
         <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-4 max-w-7xl mx-auto">
           {/* Left: Mobile Drawer Trigger + Brand Logo */}
           <div className="flex items-center gap-2.5 sm:gap-3">
@@ -199,7 +199,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       </header>
 
       {/* MAIN DASHBOARD CONTENT */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6 flex flex-col gap-7">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 py-4 sm:py-6 flex flex-col gap-6 sm:gap-7">
         {/* A. Hero Banner with Sunset Mountains & Search */}
         <HeroBanner
           searchQuery={searchQuery}

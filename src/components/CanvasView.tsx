@@ -430,28 +430,28 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               onPointerDown={(e) => handleCropPointerDown('topLeft', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -top-2 -left-2 w-6 h-6 border-t-3 border-l-3 border-white cursor-nwse-resize z-40 drop-shadow"
+              className="absolute -top-3 -left-3 w-8 h-8 border-t-3 border-l-3 border-white cursor-nwse-resize z-40 drop-shadow touch-none"
             />
             {/* Top-Right */}
             <div
               onPointerDown={(e) => handleCropPointerDown('topRight', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -top-2 -right-2 w-6 h-6 border-t-3 border-r-3 border-white cursor-nesw-resize z-40 drop-shadow"
+              className="absolute -top-3 -right-3 w-8 h-8 border-t-3 border-r-3 border-white cursor-nesw-resize z-40 drop-shadow touch-none"
             />
             {/* Bottom-Left */}
             <div
               onPointerDown={(e) => handleCropPointerDown('bottomLeft', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -bottom-2 -left-2 w-6 h-6 border-b-3 border-l-3 border-white cursor-nesw-resize z-40 drop-shadow"
+              className="absolute -bottom-3 -left-3 w-8 h-8 border-b-3 border-l-3 border-white cursor-nesw-resize z-40 drop-shadow touch-none"
             />
             {/* Bottom-Right */}
             <div
               onPointerDown={(e) => handleCropPointerDown('bottomRight', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -bottom-2 -right-2 w-6 h-6 border-b-3 border-r-3 border-white cursor-nwse-resize z-40 drop-shadow"
+              className="absolute -bottom-3 -right-3 w-8 h-8 border-b-3 border-r-3 border-white cursor-nwse-resize z-40 drop-shadow touch-none"
             />
 
             {/* Edge Grip Handles */}
@@ -459,7 +459,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               onPointerDown={(e) => handleCropPointerDown('top', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -top-1.5 inset-x-8 h-3 cursor-ns-resize z-30 flex items-center justify-center"
+              className="absolute -top-3 inset-x-8 h-6 cursor-ns-resize z-30 flex items-center justify-center touch-none"
             >
               <div className="w-8 h-1 bg-white rounded-full shadow" />
             </div>
@@ -467,7 +467,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               onPointerDown={(e) => handleCropPointerDown('bottom', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -bottom-1.5 inset-x-8 h-3 cursor-ns-resize z-30 flex items-center justify-center"
+              className="absolute -bottom-3 inset-x-8 h-6 cursor-ns-resize z-30 flex items-center justify-center touch-none"
             >
               <div className="w-8 h-1 bg-white rounded-full shadow" />
             </div>
@@ -475,7 +475,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               onPointerDown={(e) => handleCropPointerDown('left', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -left-1.5 inset-y-8 w-3 cursor-ew-resize z-30 flex items-center justify-center"
+              className="absolute -left-3 inset-y-8 w-6 cursor-ew-resize z-30 flex items-center justify-center touch-none"
             >
               <div className="h-8 w-1 bg-white rounded-full shadow" />
             </div>
@@ -483,7 +483,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
               onPointerDown={(e) => handleCropPointerDown('right', e)}
               onPointerMove={handleCropPointerMove}
               onPointerUp={handleCropPointerUp}
-              className="absolute -right-1.5 inset-y-8 w-3 cursor-ew-resize z-30 flex items-center justify-center"
+              className="absolute -right-3 inset-y-8 w-6 cursor-ew-resize z-30 flex items-center justify-center touch-none"
             >
               <div className="h-8 w-1 bg-white rounded-full shadow" />
             </div>
@@ -581,40 +581,40 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
       )}
 
       {/* Floating Canvas Quick-Adjust Capsule Dock */}
-      <div className="absolute bottom-2 sm:bottom-3 inset-x-0 mx-auto w-fit max-w-[95%] bg-[#070B14]/90 backdrop-blur-xl px-1.5 sm:px-2.5 py-1 rounded-full shadow-lg flex items-center gap-0.5 sm:gap-1 z-20 border border-white/10">
+      <div className="absolute bottom-2 sm:bottom-3 inset-x-0 mx-auto w-fit max-w-[95%] bg-[#070B14]/90 backdrop-blur-xl px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg flex items-center gap-1 sm:gap-1.5 z-20 border border-white/10">
         {/* Aspect Ratio Badge */}
         <div
-          className="h-7 px-1.5 sm:px-2 rounded-full text-on-surface-variant flex items-center gap-1 font-mono text-[10px] sm:text-[11px]"
+          className="h-8 px-2 sm:px-2.5 rounded-full text-on-surface-variant flex items-center gap-1 font-mono text-[11px] sm:text-[12px]"
           title="Current Aspect Ratio"
         >
-          <span className="material-symbols-outlined text-[14px] sm:text-[15px]">crop_rotate</span>
+          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">crop_rotate</span>
           <span>{activeAspect}</span>
         </div>
 
-        <div className="w-px h-3.5 bg-outline-variant" />
+        <div className="w-px h-4 bg-outline-variant" />
 
         {/* Magic Auto Tone Button */}
         <button
           onClick={handleMagicAutoTone}
-          className={`w-7 h-7 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center active:scale-90 transition-all cursor-pointer ${
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center active:scale-90 transition-all cursor-pointer touch-manipulation ${
             wandAnimating ? 'scale-125' : ''
           }`}
           title="Magic Auto Tone (One-Tap Balance)"
         >
-          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">auto_fix_high</span>
+          <span className="material-symbols-outlined text-[16px] sm:text-[17px]">auto_fix_high</span>
         </button>
 
         {/* Grid Guide Toggle */}
         <button
           onClick={() => setShowGrid(!showGrid)}
-          className={`w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer ${
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer touch-manipulation ${
             showGrid
               ? 'text-white bg-primary'
               : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
           }`}
           title="Toggle Rule-of-Thirds Grid"
         >
-          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">grid_goldenratio</span>
+          <span className="material-symbols-outlined text-[16px] sm:text-[17px]">grid_goldenratio</span>
         </button>
 
         {/* Zoom Toggle (Fit -> 1.6x -> 2.4x -> Fit) */}
@@ -628,10 +628,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
                 setPanOffset({ x: 0, y: 0 });
               }
             }}
-            className="w-7 h-7 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center active:scale-90 transition-all cursor-pointer touch-manipulation"
             title="Toggle Zoom level"
           >
-            <span className="material-symbols-outlined text-[15px] sm:text-[16px]">
+            <span className="material-symbols-outlined text-[16px] sm:text-[17px]">
               {zoomLevel > 1 ? 'zoom_out' : 'zoom_in'}
             </span>
           </button>
@@ -640,10 +640,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         {/* Color Lab Quick Shortcut */}
         <button
           onClick={onOpenColorLab}
-          className="w-7 h-7 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer touch-manipulation"
           title="Open Color Lab & Palette"
         >
-          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">palette</span>
+          <span className="material-symbols-outlined text-[16px] sm:text-[17px]">palette</span>
           <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_4px_rgba(191,4,17,0.6)]" />
         </button>
 
@@ -651,10 +651,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
         {onOpenAiAssistant && (
           <button
             onClick={onOpenAiAssistant}
-            className="w-7 h-7 rounded-full text-on-surface-variant hover:text-[#EC4899] hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-on-surface-variant hover:text-[#EC4899] hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer touch-manipulation"
             title="Open AI Photo Assistant"
           >
-            <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-transparent bg-clip-text bg-gradient-to-tr from-[#8B5CF6] to-[#EC4899]">
+            <span className="material-symbols-outlined text-[16px] sm:text-[17px] text-transparent bg-clip-text bg-gradient-to-tr from-[#8B5CF6] to-[#EC4899]">
               auto_awesome
             </span>
           </button>

@@ -48,20 +48,20 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, rea
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-white max-h-[92vh]">
+      <div className="relative w-full max-w-2xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-white max-h-[92dvh]">
         {/* Header Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-gradient-to-b from-[#8B5CF6]/30 via-[#EC4899]/20 to-transparent blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-[#94A3B8] hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 z-20 w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-white/10 hover:bg-white/20 text-[#94A3B8] hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
           title="Close"
         >
           ✕
         </button>
 
-        <div className="p-6 sm:p-8 overflow-y-auto flex flex-col gap-6">
+        <div className="p-4 sm:p-8 overflow-y-auto flex flex-col gap-5 sm:gap-6">
           {/* Header Title */}
           <div className="flex flex-col items-center text-center gap-2">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#F59E0B] via-[#EC4899] to-[#8B5CF6] flex items-center justify-center shadow-lg shadow-purple-950/40">
@@ -247,7 +247,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, rea
             <button
               onClick={handleSubscribe}
               disabled={processingState !== 'idle' && processingState !== 'error'}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white font-extrabold text-[15px] shadow-xl shadow-purple-950/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full min-h-[48px] py-3.5 rounded-2xl bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white font-extrabold text-[15px] shadow-xl shadow-purple-950/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               {processingState === 'opening_checkout' || processingState === 'verifying' ? (
                 <>

@@ -296,12 +296,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md transition-opacity">
-      <div className="relative w-full max-w-4xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row text-white animate-in fade-in zoom-in-95 duration-200 max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row text-white animate-in fade-in zoom-in-95 duration-200 max-h-[92dvh]">
         {/* Close Button */}
         {!isRecoveryMode && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-[#94A3B8] hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 z-20 w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-white/10 hover:bg-white/20 text-[#94A3B8] hover:text-white flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
             title="Close"
           >
             ✕
@@ -367,7 +367,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* RIGHT COLUMN: Interactive Form matching reference screenshot */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[88vh]">
+        <div className="flex-1 p-4 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[88dvh]">
           <div>
             {/* Action Reason Banner on Mobile / Top */}
             {reason && (
@@ -389,7 +389,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setMode('signin');
                     setErrorMsg(null);
                   }}
-                  className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`flex-1 min-h-[40px] py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation ${
                     mode === 'signin' || mode === 'welcome'
                       ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-md'
                       : 'text-[#94A3B8] hover:text-white'
@@ -404,7 +404,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     setMode('signup');
                     setErrorMsg(null);
                   }}
-                  className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`flex-1 min-h-[40px] py-2 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation ${
                     mode === 'signup'
                       ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-md'
                       : 'text-[#94A3B8] hover:text-white'

@@ -209,13 +209,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md">
-      <div className="relative w-full max-w-5xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-white animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-5xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] text-white animate-in fade-in zoom-in-95 duration-200">
         {/* Top Header matching reference screenshot */}
-        <div className="h-16 px-6 border-b border-white/10 flex items-center justify-between bg-[#070B14]">
+        <div className="h-16 px-4 sm:px-6 border-b border-white/10 flex items-center justify-between bg-[#070B14]">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+              className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
               title="Back"
             >
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -224,7 +224,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white border border-white/10 transition-colors"
+            className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white border border-white/10 transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -233,7 +233,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Modal Body: Left Tabs + Main Workspace */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left Navigation Sidebar matching screenshot */}
-          <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-white/10 p-3 flex md:flex-col gap-1.5 overflow-x-auto shrink-0 bg-[#070B14]/60">
+          <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-white/10 p-2.5 sm:p-3 flex md:flex-col gap-1.5 overflow-x-auto shrink-0 bg-[#070B14]/60 touch-scroll-x touch-pan-x">
             {navTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -243,7 +243,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     setActiveTab(tab.id);
                     setStatusMsg(null);
                   }}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl min-h-[40px] text-[13px] font-semibold transition-all whitespace-nowrap cursor-pointer touch-manipulation ${
                     isActive
                       ? 'bg-[#1E1B4B] text-[#A855F7] border border-[#8B5CF6]/30 shadow-sm'
                       : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
@@ -257,7 +257,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
 
           {/* Right Main Content Panel */}
-          <div className="flex-1 p-5 md:p-7 overflow-y-auto flex flex-col gap-5">
+          <div className="flex-1 p-4 sm:p-6 md:p-7 overflow-y-auto flex flex-col gap-5">
             {/* Notification messages */}
             {statusMsg && (
               <div

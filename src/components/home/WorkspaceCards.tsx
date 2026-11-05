@@ -60,12 +60,12 @@ export const WorkspaceCards: React.FC<WorkspaceCardsProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 w-full">
+    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5 w-full">
       {cards.map((card) => (
         <button
           key={card.id}
           onClick={card.onClick}
-          className="group relative flex items-center justify-between p-4 rounded-2xl bg-[#111827]/80 hover:bg-[#172033] border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 backdrop-blur-xl transition-all duration-200 active:scale-[0.98] text-left cursor-pointer overflow-hidden"
+          className="group relative flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-[#111827]/80 hover:bg-[#172033] border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 backdrop-blur-xl transition-all duration-200 active:scale-[0.98] text-left cursor-pointer overflow-hidden touch-manipulation"
         >
           {/* Subtle Ambient Hover Glow */}
           <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/[0.03] group-hover:bg-[#8B5CF6]/10 blur-xl transition-all duration-300 pointer-events-none" />

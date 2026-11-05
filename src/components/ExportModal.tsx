@@ -53,8 +53,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-md bg-surface-container-low border border-outline-variant rounded-2xl p-5 shadow-2xl flex flex-col gap-4 text-on-surface">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+      <div className="w-full max-w-md bg-surface-container-low border border-outline-variant rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col gap-4 text-on-surface max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-outline-variant pb-3">
           <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-outline hover:text-on-surface"
+            className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full hover:bg-surface-container-high flex items-center justify-center text-outline hover:text-on-surface cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
@@ -198,14 +198,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         <div className="flex items-center gap-2 pt-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-surface-container-high text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors border border-outline-variant"
+            className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-surface-container-high text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors border border-outline-variant cursor-pointer touch-manipulation"
           >
             Cancel
           </button>
           <button
             onClick={handleExportClick}
             disabled={isExporting}
-            className="flex-1 py-2.5 rounded-xl bg-primary-container text-white font-semibold text-[13px] shadow-lg shadow-primary-container/25 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+            className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-primary-container text-white font-semibold text-[13px] shadow-lg shadow-primary-container/25 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer touch-manipulation"
           >
             {isExporting ? (
               <>

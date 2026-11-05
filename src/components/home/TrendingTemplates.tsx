@@ -106,7 +106,7 @@ export const TrendingTemplates: React.FC<TrendingTemplatesProps> = ({
         </h2>
         <button
           onClick={onViewAll}
-          className="text-[13px] font-semibold text-[#8B5CF6] hover:text-[#A855F7] flex items-center gap-1 transition-colors cursor-pointer group"
+          className="text-[13px] font-semibold text-[#8B5CF6] hover:text-[#A855F7] flex items-center gap-1 py-1 transition-colors cursor-pointer group min-h-[36px]"
         >
           <span>View All</span>
           <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">
@@ -116,7 +116,7 @@ export const TrendingTemplates: React.FC<TrendingTemplatesProps> = ({
       </div>
 
       {/* Horizontal Carousel */}
-      <div className="flex items-center gap-3.5 overflow-x-auto pb-2 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex items-center gap-3.5 overflow-x-auto pb-2 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 touch-scroll-x touch-pan-x">
         {filtered.map((item) => (
           <button
             key={item.id}

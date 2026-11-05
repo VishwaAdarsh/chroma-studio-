@@ -38,16 +38,16 @@ export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
       <div className="hidden md:block w-px h-10 bg-white/10 mx-2" />
 
       {/* Pro Promotional Card Banner */}
-      <div className="flex items-center justify-between gap-4 flex-1">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 sm:gap-4 flex-1">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#F59E0B] to-[#EC4899] flex items-center justify-center shrink-0 shadow-md shadow-amber-950/30">
             <span className="material-symbols-outlined text-[20px] text-white">crown</span>
           </div>
-          <div className="flex flex-col">
-            <h4 className="font-bold text-[14px] text-white tracking-tight">
+          <div className="flex flex-col min-w-0">
+            <h4 className="font-bold text-[14px] text-white tracking-tight truncate">
               {isPro ? 'Chroma Pro Active' : 'Upgrade to Pro'}
             </h4>
-            <p className="text-[12px] text-[#94A3B8]">
+            <p className="text-[12px] text-[#94A3B8] leading-tight">
               {isPro ? 'Unlimited Cloud AI synthesis & 4K exports.' : 'Unlock premium templates, AI tools from ₹99/mo.'}
             </p>
           </div>
@@ -55,7 +55,7 @@ export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
 
         <button
           onClick={onUpgradeClick}
-          className={`px-4 py-2 rounded-xl text-white font-bold text-[12px] shadow-lg transition-all shrink-0 cursor-pointer ${
+          className={`w-full xs:w-auto min-h-[40px] px-4 py-2 rounded-xl text-white font-bold text-[12px] shadow-lg transition-all shrink-0 cursor-pointer flex items-center justify-center ${
             isPro
               ? 'bg-white/10 hover:bg-white/15 border border-white/15'
               : 'bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] shadow-purple-950/30 hover:opacity-95 active:scale-95'

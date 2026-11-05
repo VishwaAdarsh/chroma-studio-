@@ -60,10 +60,10 @@ export const Scrubber: React.FC<ScrubberProps> = ({
           {hasChanged && (
             <button
               onClick={handleResetWithHistory}
-              className="text-[9px] sm:text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all cursor-pointer min-h-[30px] px-1.5 rounded hover:bg-white/5"
+              className="text-[9px] sm:text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all cursor-pointer min-h-[32px] px-2 py-1 rounded touch-manipulation hover:bg-white/5"
               title="Reset to 0"
             >
-              <span className="material-symbols-outlined text-[12px]">refresh</span>
+              <span className="material-symbols-outlined text-[13px]">refresh</span>
               <span>RESET</span>
             </button>
           )}
@@ -74,7 +74,7 @@ export const Scrubber: React.FC<ScrubberProps> = ({
       </div>
 
       {/* Tactile Scrubber Track */}
-      <div className="relative w-full h-8 flex items-center px-1 touch-none">
+      <div className="relative w-full h-9 sm:h-8 flex items-center px-1 touch-none">
         {/* Center Zero Notch */}
         <div
           className="absolute top-1.5 bottom-1.5 w-0.5 bg-outline rounded-full pointer-events-none z-0 opacity-70"

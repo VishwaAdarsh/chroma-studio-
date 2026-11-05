@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onBlur={handleFinishEditing}
                 onKeyDown={(e) => e.key === 'Enter' && handleFinishEditing()}
                 autoFocus
-                className="bg-[#111827] text-white px-2 py-0.5 rounded text-[12px] sm:text-[13px] font-semibold border border-[#8B5CF6] outline-none max-w-[80px] xs:max-w-[105px] sm:max-w-[150px]"
+                className="bg-[#111827] text-white px-2 py-0.5 rounded text-[12px] sm:text-[13px] font-semibold border border-[#8B5CF6] outline-none max-w-[85px] xs:max-w-[120px] sm:max-w-[180px]"
               />
             ) : (
               <div
@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1 cursor-pointer group"
                 title="Click to rename project"
               >
-                <h1 className="text-[12px] sm:text-[13px] font-semibold text-white truncate max-w-[70px] xs:max-w-[95px] sm:max-w-[160px] group-hover:text-[#8B5CF6] transition-colors">
+                <h1 className="text-[12px] sm:text-[13px] font-semibold text-white truncate max-w-[85px] xs:max-w-[120px] sm:max-w-[180px] group-hover:text-[#8B5CF6] transition-colors">
                   {projectName}
                 </h1>
                 <span className="material-symbols-outlined text-[12px] text-[#94A3B8] opacity-0 group-hover:opacity-100 transition-opacity">
@@ -113,14 +113,14 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Zoom toggle (Desktop) */}
           <button
             onClick={onToggleZoom}
-            className={`h-7 px-2 rounded-full text-[11px] font-mono hidden md:flex items-center gap-1 active:scale-95 transition-all cursor-pointer ${
+            className={`h-8 px-2.5 rounded-full text-[11px] font-mono hidden md:flex items-center gap-1 active:scale-95 transition-all cursor-pointer ${
               zoomLevel > 1
                 ? 'bg-[#8B5CF6] text-white border border-[#8B5CF6]'
                 : 'bg-white/10 text-[#CBD5E1] hover:text-white border border-white/10'
             }`}
             title="Toggle Canvas Zoom"
           >
-            <span className="material-symbols-outlined text-[13px]">fit_screen</span>
+            <span className="material-symbols-outlined text-[14px]">fit_screen</span>
             <span>{Math.round(zoomLevel * 100)}%</span>
           </button>
 
@@ -128,30 +128,30 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             title="Undo"
           >
-            <span className="material-symbols-outlined text-[16px] sm:text-[17px]">undo</span>
+            <span className="material-symbols-outlined text-[17px] sm:text-[18px]">undo</span>
           </button>
 
           {/* Redo */}
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             title="Redo"
           >
-            <span className="material-symbols-outlined text-[16px] sm:text-[17px]">redo</span>
+            <span className="material-symbols-outlined text-[17px] sm:text-[18px]">redo</span>
           </button>
 
           {/* Copy Edits (Desktop/Tablet) */}
           {onCopyEdits && (
             <button
               onClick={onCopyEdits}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-[#8B5CF6] hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-[#8B5CF6] hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
               title="Copy Recipe (Ctrl+C)"
             >
-              <span className="material-symbols-outlined text-[15px] sm:text-[16px]">content_copy</span>
+              <span className="material-symbols-outlined text-[16px] sm:text-[17px]">content_copy</span>
             </button>
           )}
 
@@ -160,10 +160,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onPasteEdits}
               disabled={!canPasteEdits}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-[#8B5CF6] hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-[#8B5CF6] hover:bg-white/10 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
               title="Paste Recipe (Ctrl+V)"
             >
-              <span className="material-symbols-outlined text-[15px] sm:text-[16px]">content_paste</span>
+              <span className="material-symbols-outlined text-[16px] sm:text-[17px]">content_paste</span>
             </button>
           )}
 
@@ -171,10 +171,10 @@ export const Header: React.FC<HeaderProps> = ({
           {onResetAll && (
             <button
               onClick={onResetAll}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-rose-400 hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-rose-400 hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
               title="Reset All Adjustments"
             >
-              <span className="material-symbols-outlined text-[16px] sm:text-[17px]">restart_alt</span>
+              <span className="material-symbols-outlined text-[17px] sm:text-[18px]">restart_alt</span>
             </button>
           )}
 
@@ -188,33 +188,33 @@ export const Header: React.FC<HeaderProps> = ({
               onStartComparing();
             }}
             onTouchEnd={onStopComparing}
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center active:scale-95 transition-all border cursor-pointer ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center active:scale-95 transition-all border cursor-pointer ${
               isComparing
                 ? 'bg-[#8B5CF6] text-white border-[#8B5CF6] shadow-[0_0_10px_rgba(139,92,246,0.6)]'
                 : 'bg-white/10 text-[#8B5CF6] border-white/10 hover:bg-white/20'
             }`}
             title="Hold to view original image"
           >
-            <span className="material-symbols-outlined text-[15px] sm:text-[16px]">visibility</span>
+            <span className="material-symbols-outlined text-[16px] sm:text-[17px]">visibility</span>
           </button>
 
           {/* Settings (Desktop/Tablet) */}
           <button
             onClick={onOpenSettings}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
             title="Settings & Privacy"
           >
-            <span className="material-symbols-outlined text-[16px] sm:text-[17px]">settings</span>
+            <span className="material-symbols-outlined text-[17px] sm:text-[18px]">settings</span>
           </button>
 
           {/* User Profile (Desktop/Tablet) */}
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hidden sm:flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
               title="My Account"
             >
-              <span className="material-symbols-outlined text-[16px] sm:text-[17px]">account_circle</span>
+              <span className="material-symbols-outlined text-[17px] sm:text-[18px]">account_circle</span>
             </button>
           )}
 
@@ -222,15 +222,15 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative sm:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white bg-white/10 active:scale-90 transition-all cursor-pointer"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-white bg-white/10 active:scale-90 transition-all cursor-pointer"
               title="More Actions"
             >
-              <span className="material-symbols-outlined text-[16px]">more_vert</span>
+              <span className="material-symbols-outlined text-[17px]">more_vert</span>
             </button>
 
             {mobileMenuOpen && (
               <div
-                className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex flex-col justify-end p-3 animate-in fade-in"
+                className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex flex-col justify-end p-3 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] animate-in fade-in"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <div
@@ -334,9 +334,9 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Export CTA Button */}
           <button
             onClick={onOpenExport}
-            className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-full bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white flex items-center gap-1 font-bold text-[10px] sm:text-[11px] shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:brightness-110 active:scale-95 transition-all ml-0.5 cursor-pointer"
+            className="h-8 px-3 sm:px-3.5 rounded-full bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white flex items-center gap-1 font-bold text-[11px] sm:text-[12px] shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:brightness-110 active:scale-95 transition-all ml-0.5 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[13px] sm:text-[14px]">ios_share</span>
+            <span className="material-symbols-outlined text-[14px] sm:text-[15px]">ios_share</span>
             <span>Export</span>
           </button>
         </div>

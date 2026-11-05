@@ -18,7 +18,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   };
 
   return (
-    <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10 min-h-[220px] sm:min-h-[260px] md:min-h-[290px] flex flex-col justify-end p-5 sm:p-7 md:p-8 bg-cover bg-center transition-all duration-300"
+    <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10 min-h-[210px] sm:min-h-[260px] md:min-h-[290px] flex flex-col justify-end p-4 sm:p-7 md:p-8 bg-cover bg-center transition-all duration-300"
       style={{
         backgroundImage: `url('/assets/hero-mountains.svg')`,
       }}
@@ -28,16 +28,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       <div className="absolute inset-0 bg-gradient-to-r from-[#070B14]/80 via-transparent to-transparent pointer-events-none" />
 
       {/* Hero Typography & Search */}
-      <div className="relative z-10 flex flex-col gap-3 max-w-2xl">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight drop-shadow-md leading-tight">
+      <div className="relative z-10 flex flex-col gap-2.5 sm:gap-3 max-w-2xl">
+        <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight drop-shadow-md leading-tight">
           Create. Edit. Design. Inspire.
         </h1>
-        <p className="text-[13px] sm:text-base text-[#CBD5E1] font-normal leading-relaxed drop-shadow-sm max-w-xl">
+        <p className="text-[12px] sm:text-base text-[#CBD5E1] font-normal leading-relaxed drop-shadow-sm max-w-xl">
           All-in-one photo editing, templates, collage and carousel creator.
         </p>
 
         {/* Hero Search Field */}
-        <div className="mt-2 relative w-full max-w-lg">
+        <div className="mt-1 sm:mt-2 relative w-full max-w-lg">
           <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-[#94A3B8] pointer-events-none">
             search
           </span>
