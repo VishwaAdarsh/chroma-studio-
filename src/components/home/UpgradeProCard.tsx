@@ -3,15 +3,18 @@ import React from 'react';
 interface UpgradeProCardProps {
   onUpgradeClick: () => void;
   storageUsedMB?: number;
+  isPro?: boolean;
 }
 
 export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
   onUpgradeClick,
   storageUsedMB = 240, // 0.24 GB default
+  isPro = false,
 }) => {
-  const totalStorageMB = 10240; // 10 GB
+  const totalStorageMB = isPro ? 10240 : 1024; // 10 GB for Pro, 1 GB for free
   const usedPercent = Math.min(100, Math.max(5, Math.round((storageUsedMB / totalStorageMB) * 100)));
   const formattedUsed = storageUsedMB > 1024 ? `${(storageUsedMB / 1024).toFixed(1)} GB` : `${storageUsedMB} MB`;
+  const formattedTotal = isPro ? '10 GB' : '1 GB';
 
   return (
     <div className="w-full rounded-2xl bg-[#111827]/80 border border-white/10 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 backdrop-blur-xl shadow-xl shadow-black/20">
@@ -20,9 +23,9 @@ export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
         <div className="flex items-center justify-between text-[12px]">
           <span className="font-semibold text-white flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px] text-[#22D3EE]">cloud</span>
-            Storage
+            Storage {isPro && <span className="text-[10px] text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-500/20">PRO 10GB</span>}
           </span>
-          <span className="font-mono text-[#94A3B8]">{formattedUsed} of 10 GB</span>
+          <span className="font-mono text-[#94A3B8]">{formattedUsed} of {formattedTotal}</span>
         </div>
         <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
           <div
@@ -41,16 +44,24 @@ export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
             <span className="material-symbols-outlined text-[20px] text-white">crown</span>
           </div>
           <div className="flex flex-col">
-            <h4 className="font-bold text-[14px] text-white tracking-tight">Upgrade to Pro</h4>
-            <p className="text-[12px] text-[#94A3B8]">Unlock premium templates, AI tools and more.</p>
+            <h4 className="font-bold text-[14px] text-white tracking-tight">
+              {isPro ? 'Chroma Pro Active' : 'Upgrade to Pro'}
+            </h4>
+            <p className="text-[12px] text-[#94A3B8]">
+              {isPro ? 'Unlimited Cloud AI synthesis & 4K exports.' : 'Unlock premium templates, AI tools from ₹99/mo.'}
+            </p>
           </div>
         </div>
 
         <button
           onClick={onUpgradeClick}
-          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white font-bold text-[12px] shadow-lg shadow-purple-950/30 hover:opacity-95 active:scale-95 transition-all shrink-0 cursor-pointer"
+          className={`px-4 py-2 rounded-xl text-white font-bold text-[12px] shadow-lg transition-all shrink-0 cursor-pointer ${
+            isPro
+              ? 'bg-white/10 hover:bg-white/15 border border-white/15'
+              : 'bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] shadow-purple-950/30 hover:opacity-95 active:scale-95'
+          }`}
         >
-          Upgrade Now
+          {isPro ? 'Manage Plan' : 'Upgrade Now'}
         </button>
       </div>
     </div>

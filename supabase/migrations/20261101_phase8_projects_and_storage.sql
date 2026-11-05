@@ -76,6 +76,9 @@ CREATE TRIGGER on_project_updated
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_project_version_and_updated_at();
 
+-- Restrict direct RPC execution of trigger function
+REVOKE EXECUTE ON FUNCTION public.handle_project_version_and_updated_at() FROM PUBLIC, anon, authenticated;
+
 -- 6. Storage Bucket 'projects' for private user assets and thumbnails
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (

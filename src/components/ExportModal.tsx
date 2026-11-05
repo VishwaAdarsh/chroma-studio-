@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ExportSettings } from '../types/editor';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   originalHeight,
   onExport,
 }) => {
+  const { checkFeatureAccess, isPro } = useSubscription();
   const [format, setFormat] = useState<'jpeg' | 'png' | 'webp'>('jpeg');
   const [quality, setQuality] = useState<number>(0.92);
   const [scale, setScale] = useState<number>(1);
@@ -113,21 +115,34 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <label className="text-[11px] font-semibold uppercase text-on-surface-variant">Target Scale</label>
           <div className="grid grid-cols-4 gap-2">
             {[
-              { label: 'Original (1×)', value: 1 },
-              { label: '2K (1.5×)', value: 1.5 },
-              { label: '75%', value: 0.75 },
-              { label: '50%', value: 0.5 },
+              { label: 'Original (1×)', value: 1, isPro: false },
+              { label: '2K (1.5×)', value: 1.5, isPro: false },
+              { label: '4K Ultra (2×)', value: 2, isPro: true },
+              { label: '50%', value: 0.5, isPro: false },
             ].map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setScale(opt.value)}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-medium transition-all ${
+                onClick={() => {
+                  if (opt.isPro) {
+                    const allowed = checkFeatureAccess(
+                      'export_4k_lossless',
+                      undefined,
+                      'Upgrade to Chroma Pro for 4K Ultra resolution exports.'
+                    );
+                    if (!allowed) return;
+                  }
+                  setScale(opt.value);
+                }}
+                className={`py-1.5 px-2 rounded-lg text-[11px] font-medium transition-all relative ${
                   scale === opt.value
                     ? 'bg-primary text-white border border-primary'
                     : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface border border-outline-variant'
                 }`}
               >
-                {opt.label}
+                <span>{opt.label}</span>
+                {opt.isPro && !isPro && (
+                  <span className="block text-[8px] font-black text-amber-400">PRO</span>
+                )}
               </button>
             ))}
           </div>

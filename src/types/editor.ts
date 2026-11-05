@@ -19,12 +19,31 @@ export interface AdjustmentParameters {
   clarity: number;        // -100 to +100
   sharpen: number;        // 0 to 100
   blur: number;           // 0 to 100
+  noiseReduction: number; // 0 to 100 (default 0)
 
   // Effects
   vignette: number;       // 0 to 100
   grain: number;          // 0 to 100
   fade: number;           // 0 to 100
 }
+
+export type HslChannel =
+  | 'red'
+  | 'orange'
+  | 'yellow'
+  | 'green'
+  | 'aqua'
+  | 'blue'
+  | 'purple'
+  | 'magenta';
+
+export interface HslChannelAdjustment {
+  hue: number;        // -100 to +100
+  saturation: number; // -100 to +100
+  luminance: number;  // -100 to +100
+}
+
+export type HslAdjustments = Record<HslChannel, HslChannelAdjustment>;
 
 export interface CurvePoint {
   x: number; // 0 to 255
@@ -87,6 +106,7 @@ export interface PhotoTemplate {
   parameters: Partial<AdjustmentParameters>;
   wheels?: Partial<ColorWheels>;
   curves?: Partial<ToneCurves>;
+  hsl?: Partial<HslAdjustments>;
   badge?: string;
   thumbnailGradient?: string;
   isCustom?: boolean;
@@ -119,6 +139,11 @@ export interface Project {
   geometry: GeometryState;
   curves: ToneCurves;
   wheels: ColorWheels;
+  hsl?: HslAdjustments;
+  cutout?: CutoutState;
+  backgroundReplacement?: BackgroundReplacementState;
+  enhancement?: EnhancementState;
+  inpaint?: InpaintState;
   thumbnail?: string;
   // Cloud Sync Metadata
   syncStatus?: ProjectSyncStatus;
@@ -130,7 +155,84 @@ export interface Project {
   thumbnailPath?: string;
 }
 
-export type EditorTab = 'looks' | 'adjust' | 'crop' | 'colorlab' | 'curves' | 'effects';
+export interface EnhancementState {
+  applied: boolean;
+  strength: 'subtle' | 'balanced' | 'strong';
+  mode: 'ai-cloud' | 'ai-local' | 'analytical';
+  appliedAt: number;
+  explanation?: string;
+}
+
+export interface InpaintBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface InpaintOperation {
+  id: string;
+  timestamp: number;
+  maskData: string; // Base64 PNG mask of erased area
+  patchData?: string; // Base64 PNG patch or composite
+  bounds?: InpaintBoundingBox;
+  provider: 'on-device' | 'cloud-ai' | 'texture-patch';
+  explanation?: string;
+}
+
+export interface InpaintState {
+  operations: InpaintOperation[];
+  activeMaskData?: string;
+}
+
+export interface CutoutState {
+  enabled: boolean;
+  mode: 'auto' | 'color' | 'manual' | 'ai';
+  tolerance: number;   // 0 to 100
+  feather: number;     // 0 to 20 px
+  invert: boolean;     // false = keep subject, true = keep background
+  matteColor?: string; // Intentional solid color when exporting to non-alpha formats like JPEG
+  targetColor?: { r: number; g: number; b: number };
+  maskData?: string;   // Data URL or base64 alpha mask for serialization
+  maskAlpha?: Uint8ClampedArray; // In-memory 8-bit alpha buffer for real-time rendering
+  provider?: 'on-device' | 'cloud';
+  confidence?: number;
+  hasUserConsent?: boolean;
+}
+
+export type BackgroundReplacementMode = 'color' | 'image' | 'ai';
+
+export interface BackgroundTransform {
+  scale: number;    // 0.5 to 2.5 (1 = 100%)
+  offsetX: number;  // -50 to 50 (%)
+  offsetY: number;  // -50 to 50 (%)
+  fit: 'cover' | 'contain' | 'fill';
+  blur: number;     // 0 to 20 px simulated depth blur
+}
+
+export interface ForegroundTransform {
+  scale: number;    // 0.5 to 1.5 (1 = 100%)
+  offsetX: number;  // -50 to 50 (%)
+  offsetY: number;  // -50 to 50 (%)
+}
+
+export interface BackgroundReplacementState {
+  enabled: boolean;
+  mode: BackgroundReplacementMode;
+  color: string;                     // Hex color e.g. '#FFFFFF'
+  imageSrc?: string;                 // Custom uploaded image (Data URL / Object URL)
+  imageName?: string;
+  aiPrompt?: string;                 // Text prompt for generative background
+  aiGeneratedSrc?: string;           // Resulting image URL / Data URL from AI generation
+  aiProvider?: 'cloud' | 'local-synth';
+  hasUserConsent?: boolean;
+  bgTransform: BackgroundTransform;
+  fgTransform: ForegroundTransform;
+  feather: number;                   // 0 to 10 px edge blending
+  updatedAt?: number;
+}
+
+export type EditorTab = 'looks' | 'adjust' | 'crop' | 'colorlab' | 'curves' | 'effects' | 'cutout' | 'backdrop' | 'ai' | 'inpaint';
 
 export interface DominantColor {
   hex: string;
@@ -152,4 +254,19 @@ export interface HistogramData {
   b: number[];
   l: number[];
   maxCount: number;
+}
+
+export interface HistorySnapshot {
+  adjustments: AdjustmentParameters;
+  activePresetId: string | null;
+  presetIntensity: number;
+  geometry: GeometryState;
+  curves: ToneCurves;
+  wheels: ColorWheels;
+  hsl?: HslAdjustments;
+  cutout?: CutoutState;
+  backgroundReplacement?: BackgroundReplacementState;
+  enhancement?: EnhancementState;
+  inpaint?: InpaintState;
+  currentImageSrc?: string;
 }

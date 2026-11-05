@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import { syncEngine } from '../services/syncEngine';
@@ -294,17 +295,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       CapacitorApp.addListener('appUrlOpen', async (data) => {
         if (!data.url) return;
         try {
-          // If the URL contains an OAuth or recovery hash, parse and establish session
-          if (data.url.includes('#access_token') || data.url.includes('access_token=')) {
-            const urlObj = new URL(data.url);
-            const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+          // Close Chrome Custom Tab or in-app browser if opened for OAuth
+          await Browser.close().catch(() => {});
+
+          let urlObj: URL | null = null;
+          try {
+            urlObj = new URL(data.url);
+          } catch {
+            const normalized = data.url.replace(/^studio\.chroma\.photoeditor:\/\//, 'https://auth.callback/');
+            urlObj = new URL(normalized);
+          }
+
+          // 1. PKCE Authorization Code Exchange (Default Supabase Flow)
+          const code = urlObj?.searchParams.get('code');
+          if (code && supabase) {
+            const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (!error && sessionData?.session) {
+              setSession(sessionData.session);
+              setUser(sessionData.session.user);
+              setIsGuestState(false);
+              setAuthModalOpen(false);
+              return;
+            }
+          }
+
+          // 2. Implicit / Hash Token Flow
+          const hashIndex = data.url.indexOf('#');
+          if (hashIndex !== -1 && supabase) {
+            const hashParams = new URLSearchParams(data.url.substring(hashIndex + 1));
             const accessToken = hashParams.get('access_token');
             const refreshToken = hashParams.get('refresh_token');
             if (accessToken && refreshToken) {
-              await supabase!.auth.setSession({
+              const { data: sessionData, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken,
               });
+              if (!error && sessionData?.session) {
+                setSession(sessionData.session);
+                setUser(sessionData.session.user);
+                setIsGuestState(false);
+                setAuthModalOpen(false);
+                return;
+              }
             }
           }
         } catch (err) {
@@ -382,7 +414,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const redirectUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const isNative = Capacitor.isNativePlatform();
+      const redirectUrl = isNative
+        ? 'studio.chroma.photoeditor://auth/callback'
+        : (typeof window !== 'undefined' ? window.location.origin : undefined);
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -441,6 +476,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectTo = isNative
         ? 'studio.chroma.photoeditor://auth/callback'
         : (typeof window !== 'undefined' ? window.location.origin : undefined);
+
+      if (isNative) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo,
+            skipBrowserRedirect: true,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+          },
+        });
+
+        if (error) {
+          return { error };
+        }
+
+        if (data?.url) {
+          await Browser.open({ url: data.url, windowName: '_self' });
+        }
+
+        return { error: null };
+      }
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -603,7 +662,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}#type=recovery` : undefined;
+      const isNative = Capacitor.isNativePlatform();
+      const redirectUrl = isNative
+        ? 'studio.chroma.photoeditor://auth/callback#type=recovery'
+        : (typeof window !== 'undefined' ? `${window.location.origin}#type=recovery` : undefined);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });

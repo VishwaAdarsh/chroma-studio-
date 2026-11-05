@@ -23,8 +23,10 @@ import { CarouselStudio } from './components/carousel/CarouselStudio';
 import { CarouselEditor } from './components/carousel/CarouselEditor';
 import { MyProjectsView } from './components/projects/MyProjectsView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import { AuthModal, AuthViewMode } from './components/auth/AuthModal';
 import { ProfileModal } from './components/profile/ProfileModal';
+import { UpgradeModal } from './components/subscription/UpgradeModal';
 import type {
   ReadyMadeTemplate,
   DesignProject,
@@ -34,36 +36,48 @@ import type {
 import type { CarouselFamilyDefinition } from './data/carouselTemplates';
 import {
   DEFAULT_ADJUSTMENTS,
+  DEFAULT_BACKGROUND_REPLACEMENT,
   DEFAULT_CURVES,
   DEFAULT_GEOMETRY,
   DEFAULT_WHEELS,
+  DEFAULT_HSL,
+  DEFAULT_CUTOUT,
 } from './constants/defaults';
 import { PRESETS } from './data/presets';
 import { SAMPLE_IMAGES, SampleImage } from './data/samples';
-import { blendPresetAdjustments, processImage } from './engine/pipeline';
+import { blendPresetAdjustments, calculateAutoTone, processImage } from './engine/pipeline';
 import { AutosaveSession, StorageService } from './services/storage';
 import { generateUUID } from './services/cloudProjectService';
 import {
   AdjustmentParameters,
+  BackgroundReplacementState,
   ColorWheels,
+  CutoutState,
   DominantColor,
   EditorTab,
+  EnhancementState,
   ExportSettings,
   GeometryState,
   HistogramData,
+  HistorySnapshot,
+  HslAdjustments,
+  InpaintOperation,
+  InpaintState,
   Preset,
   Project,
   ToneCurves,
 } from './types/editor';
-
-interface HistorySnapshot {
-  adjustments: AdjustmentParameters;
-  activePresetId: string | null;
-  presetIntensity: number;
-  geometry: GeometryState;
-  curves: ToneCurves;
-  wheels: ColorWheels;
-}
+import { HslColorMixer } from './components/HslColorMixer';
+import { CutoutPanel } from './components/panels/CutoutPanel';
+import { BackgroundReplacementPanel } from './components/panels/BackgroundReplacementPanel';
+import { AiAssistantPanel } from './components/panels/AiAssistantPanel';
+import { AiEnhancePanel } from './components/panels/AiEnhancePanel';
+import { InpaintPanel } from './components/panels/InpaintPanel';
+import { AiImageGenPanel } from './components/panels/AiImageGenPanel';
+import { AiImageGenModal } from './components/modals/AiImageGenModal';
+import type { AiEditPlan } from './services/ai';
+import { segmentationService } from './services/segmentation';
+import { inpaintingService } from './services/inpainting';
 
 function ChromaStudioApp() {
   const {
@@ -78,6 +92,11 @@ function ChromaStudioApp() {
     closeAuthModal,
     consumePendingDestination,
   } = useAuth();
+  const {
+    upgradeModalOpen,
+    upgradeReason,
+    closeUpgradeModal,
+  } = useSubscription();
   // Navigation & Modal States
   const [currentView, setCurrentView] = useState<
     | 'home'
@@ -125,6 +144,40 @@ function ChromaStudioApp() {
   const [geometry, setGeometry] = useState<GeometryState>(DEFAULT_GEOMETRY);
   const [curves, setCurves] = useState<ToneCurves>(DEFAULT_CURVES);
   const [wheels, setWheels] = useState<ColorWheels>(DEFAULT_WHEELS);
+  const [hsl, setHsl] = useState<HslAdjustments>(DEFAULT_HSL);
+  const [cutout, setCutout] = useState<CutoutState>(DEFAULT_CUTOUT);
+  const [backgroundReplacement, setBackgroundReplacement] = useState<BackgroundReplacementState>(DEFAULT_BACKGROUND_REPLACEMENT);
+  const bgImageRef = useRef<HTMLImageElement | null>(null);
+  const [enhancement, setEnhancement] = useState<EnhancementState | undefined>(undefined);
+  const [aiSubMode, setAiSubMode] = useState<'enhance' | 'assistant' | 'generate'>('enhance');
+  const [isAiGenModalOpen, setIsAiGenModalOpen] = useState(false);
+
+  // Inpainting & Object Removal State
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [inpaintState, setInpaintState] = useState<InpaintState>({ operations: [] });
+  const [brushSize, setBrushSize] = useState(25);
+  const [brushMode, setBrushMode] = useState<'brush' | 'eraser'>('brush');
+  const [maskPastStrokes, setMaskPastStrokes] = useState<ImageData[]>([]);
+  const [maskFutureStrokes, setMaskFutureStrokes] = useState<ImageData[]>([]);
+  const [isInpaintProcessing, setIsInpaintProcessing] = useState(false);
+  const [inpaintProgress, setInpaintProgress] = useState(0);
+  const [inpaintStatus, setInpaintStatus] = useState('');
+  const [inpaintPreviewUrl, setInpaintPreviewUrl] = useState<string | null>(null);
+
+  // Copied recipe for copy/paste edits workflow
+  const [clipboardEdits, setClipboardEdits] = useState<{
+    adjustments: AdjustmentParameters;
+    wheels?: ColorWheels;
+    curves?: ToneCurves;
+    hsl?: HslAdjustments;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('chroma_studio_copied_recipe');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Undo / Redo History
   const [historyPast, setHistoryPast] = useState<HistorySnapshot[]>([]);
@@ -165,6 +218,8 @@ function ChromaStudioApp() {
     if (recoverableSession.geometry) setGeometry(recoverableSession.geometry);
     if (recoverableSession.curves) setCurves(recoverableSession.curves);
     if (recoverableSession.wheels) setWheels(recoverableSession.wheels);
+    if (recoverableSession.adjustments?.hsl) setHsl(recoverableSession.adjustments.hsl);
+    if (recoverableSession.adjustments?.cutout) setCutout(recoverableSession.adjustments.cutout);
     if (recoverableSession.activePresetId !== undefined) setActivePresetId(recoverableSession.activePresetId);
     if (recoverableSession.presetIntensity !== undefined) setPresetIntensity(recoverableSession.presetIntensity);
     if (recoverableSession.originalDimensions) setOriginalDimensions(recoverableSession.originalDimensions);
@@ -181,6 +236,13 @@ function ChromaStudioApp() {
   // Pipeline Output
   const [histogram, setHistogram] = useState<HistogramData | null>(null);
   const [dominantColors, setDominantColors] = useState<DominantColor[]>([]);
+
+  // AI Edit Plan Preview State
+  const [aiPreviewState, setAiPreviewState] = useState<{
+    adjustments: AdjustmentParameters | null;
+    presetId?: string | null;
+    presetIntensity?: number;
+  } | null>(null);
 
   // Canvas & Image References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -199,7 +261,16 @@ function ChromaStudioApp() {
     geometry: JSON.parse(JSON.stringify(geometry)),
     curves: JSON.parse(JSON.stringify(curves)),
     wheels: JSON.parse(JSON.stringify(wheels)),
-  }), [adjustments, activePresetId, presetIntensity, geometry, curves, wheels]);
+    hsl: JSON.parse(JSON.stringify(hsl)),
+    cutout: {
+      ...cutout,
+      maskAlpha: cutout.maskAlpha,
+    },
+    backgroundReplacement: JSON.parse(JSON.stringify(backgroundReplacement)),
+    enhancement: enhancement ? { ...enhancement } : undefined,
+    inpaint: JSON.parse(JSON.stringify(inpaintState)),
+    currentImageSrc: imageSrc,
+  }), [adjustments, activePresetId, presetIntensity, geometry, curves, wheels, hsl, cutout, backgroundReplacement, enhancement, inpaintState, imageSrc]);
 
   // Push immediate state to undo stack (for discrete operations)
   const commitImmediateHistory = useCallback(() => {
@@ -232,7 +303,7 @@ function ChromaStudioApp() {
   }, [captureSnapshot]);
 
   // Undo
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (historyPast.length === 0) return;
     const previous = historyPast[historyPast.length - 1];
     const newPast = historyPast.slice(0, -1);
@@ -247,10 +318,23 @@ function ChromaStudioApp() {
     setGeometry(previous.geometry);
     setCurves(previous.curves);
     setWheels(previous.wheels);
-  };
+    if (previous.hsl) setHsl(previous.hsl);
+    else setHsl(DEFAULT_HSL);
+    if (previous.cutout) setCutout(previous.cutout);
+    else setCutout(DEFAULT_CUTOUT);
+    if (previous.backgroundReplacement) setBackgroundReplacement(previous.backgroundReplacement);
+    else setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+    if (previous.enhancement) setEnhancement(previous.enhancement);
+    else setEnhancement(undefined);
+    if (previous.inpaint) setInpaintState(previous.inpaint);
+    else setInpaintState({ operations: [] });
+    if (previous.currentImageSrc && previous.currentImageSrc !== imageSrc) {
+      loadImage(previous.currentImageSrc);
+    }
+  }, [historyPast, captureSnapshot, imageSrc]);
 
   // Redo
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (historyFuture.length === 0) return;
     const next = historyFuture[0];
     const newFuture = historyFuture.slice(1);
@@ -265,7 +349,20 @@ function ChromaStudioApp() {
     setGeometry(next.geometry);
     setCurves(next.curves);
     setWheels(next.wheels);
-  };
+    if (next.hsl) setHsl(next.hsl);
+    else setHsl(DEFAULT_HSL);
+    if (next.cutout) setCutout(next.cutout);
+    else setCutout(DEFAULT_CUTOUT);
+    if (next.backgroundReplacement) setBackgroundReplacement(next.backgroundReplacement);
+    else setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+    if (next.enhancement) setEnhancement(next.enhancement);
+    else setEnhancement(undefined);
+    if (next.inpaint) setInpaintState(next.inpaint);
+    else setInpaintState({ operations: [] });
+    if (next.currentImageSrc && next.currentImageSrc !== imageSrc) {
+      loadImage(next.currentImageSrc);
+    }
+  }, [historyFuture, captureSnapshot, imageSrc]);
 
   // Render Pipeline
   const runPipeline = useCallback(() => {
@@ -278,20 +375,31 @@ function ChromaStudioApp() {
         const canvas = canvasRef.current;
         if (!img || !canvas) return;
 
+        const effectiveAdjustments = aiPreviewState?.adjustments || adjustments;
+        const effectivePresetId =
+          aiPreviewState?.presetId !== undefined ? aiPreviewState.presetId : activePresetId;
+        const effectivePresetIntensity =
+          aiPreviewState?.presetIntensity !== undefined ? aiPreviewState.presetIntensity : presetIntensity;
+
         const customPresets = StorageService.getCustomTemplates();
         const activePreset =
-          PRESETS.find((p) => p.id === activePresetId) ||
-          customPresets.find((p) => p.id === activePresetId) ||
+          PRESETS.find((p) => p.id === effectivePresetId) ||
+          customPresets.find((p) => p.id === effectivePresetId) ||
           null;
 
-        const { adjustments: blendedAdj, wheels: finalWheels, curves: finalCurves } =
-          blendPresetAdjustments(
-            adjustments,
-            activePreset,
-            presetIntensity,
-            wheels,
-            curves
-          );
+        const {
+          adjustments: blendedAdj,
+          wheels: finalWheels,
+          curves: finalCurves,
+          hsl: finalHsl,
+        } = blendPresetAdjustments(
+          effectiveAdjustments,
+          activePreset,
+          effectivePresetIntensity,
+          wheels,
+          curves,
+          hsl
+        );
 
         // Responsive interactive preview scaling: avoid allocating massive pixel buffers on scrub
         const maxPreviewDim = 1440;
@@ -310,7 +418,11 @@ function ChromaStudioApp() {
           finalCurves || curves,
           finalWheels || wheels,
           canvas,
-          previewScale
+          previewScale,
+          finalHsl || hsl,
+          cutout,
+          backgroundReplacement,
+          bgImageRef.current
         );
 
         setHistogram(result.histogram);
@@ -328,7 +440,39 @@ function ChromaStudioApp() {
     geometry,
     curves,
     wheels,
+    hsl,
+    cutout,
+    backgroundReplacement,
+    aiPreviewState,
     originalDimensions,
+  ]);
+
+  // Preload background image asset whenever custom image or AI generated scene changes
+  useEffect(() => {
+    const src =
+      backgroundReplacement.mode === 'image'
+        ? backgroundReplacement.imageSrc
+        : backgroundReplacement.mode === 'ai'
+        ? backgroundReplacement.aiGeneratedSrc
+        : null;
+
+    if (src) {
+      const bgImg = new Image();
+      bgImg.crossOrigin = 'anonymous';
+      bgImg.onload = () => {
+        bgImageRef.current = bgImg;
+        runPipeline();
+      };
+      bgImg.src = src;
+    } else {
+      bgImageRef.current = null;
+      runPipeline();
+    }
+  }, [
+    backgroundReplacement.mode,
+    backgroundReplacement.imageSrc,
+    backgroundReplacement.aiGeneratedSrc,
+    runPipeline,
   ]);
 
   // Re-run pipeline when parameters change
@@ -337,6 +481,12 @@ function ChromaStudioApp() {
       runPipeline();
     }
   }, [runPipeline, imageSrc, currentView]);
+
+  // Reset active ephemeral AI previews and inpaint preview when switching tool tabs
+  useEffect(() => {
+    setAiPreviewState(null);
+    setInpaintPreviewUrl(null);
+  }, [activeTab]);
 
   // Load an image into memory
   const loadImage = (src: string, title?: string) => {
@@ -364,10 +514,53 @@ function ChromaStudioApp() {
     setGeometry(DEFAULT_GEOMETRY);
     setCurves(DEFAULT_CURVES);
     setWheels(DEFAULT_WHEELS);
+    setHsl(DEFAULT_HSL);
+    setCutout(DEFAULT_CUTOUT);
+    setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
     setHistoryPast([]);
     setHistoryFuture([]);
     loadImage(sample.url, `${sample.title}.RAW`);
   };
+
+  const handleOpenGeneratedInEditor = async (imageUrl: string, title?: string) => {
+    // Preserve current project in storage before opening new AI generated project
+    if (imageSrc) {
+      await saveCurrentProjectToStorage();
+    }
+    setProjectId(generateUUID());
+    setProjectName(title || 'AI Generated Image');
+    setAdjustments(DEFAULT_ADJUSTMENTS);
+    setActivePresetId(null);
+    setPresetIntensity(100);
+    setGeometry(DEFAULT_GEOMETRY);
+    setCurves(DEFAULT_CURVES);
+    setWheels(DEFAULT_WHEELS);
+    setHsl(DEFAULT_HSL);
+    setCutout(DEFAULT_CUTOUT);
+    setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+    setEnhancement(undefined);
+    setInpaintState({ operations: [] });
+    setHistoryPast([]);
+    setHistoryFuture([]);
+    loadImage(imageUrl, title || 'AI Generated Image');
+    setCurrentView('editor');
+    setActiveTab('adjust');
+  };
+
+  const handleUseGeneratedAsBackdrop = useCallback(
+    (imageUrl: string) => {
+      commitImmediateHistory();
+      setBackgroundReplacement((prev) => ({
+        ...prev,
+        enabled: true,
+        mode: 'image',
+        imageSrc: imageUrl,
+      }));
+      setActiveTab('backdrop');
+      setIsAiGenModalOpen(false);
+    },
+    [commitImmediateHistory]
+  );
 
   // Handlers for importing user photo
   const handleImportFile = (file: File) => {
@@ -398,6 +591,8 @@ function ChromaStudioApp() {
         setGeometry(DEFAULT_GEOMETRY);
         setCurves(DEFAULT_CURVES);
         setWheels(DEFAULT_WHEELS);
+        setHsl(DEFAULT_HSL);
+        setCutout(DEFAULT_CUTOUT);
         setHistoryPast([]);
         setHistoryFuture([]);
         loadImage(src, file.name);
@@ -439,6 +634,16 @@ function ChromaStudioApp() {
     setGeometry(project.geometry);
     setCurves(project.curves);
     setWheels(project.wheels);
+    if (project.hsl) setHsl(project.hsl);
+    else setHsl(DEFAULT_HSL);
+    if (project.cutout) setCutout(project.cutout);
+    else setCutout(DEFAULT_CUTOUT);
+    if (project.backgroundReplacement) setBackgroundReplacement(project.backgroundReplacement);
+    else setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+    if (project.enhancement) setEnhancement(project.enhancement);
+    else setEnhancement(undefined);
+    if (project.inpaint) setInpaintState(project.inpaint);
+    else setInpaintState({ operations: [] });
     setHistoryPast([]);
     setHistoryFuture([]);
     loadImage(project.imageSrc, project.name);
@@ -463,6 +668,11 @@ function ChromaStudioApp() {
       geometry,
       curves,
       wheels,
+      hsl,
+      cutout,
+      backgroundReplacement,
+      enhancement,
+      inpaint: inpaintState,
       userId: user?.id,
     };
     await StorageService.saveProject(project);
@@ -722,26 +932,336 @@ function ChromaStudioApp() {
     }
   };
 
+  // AI Plan Application & Interactive Preview Handlers
+  const handleApplyAiPlan = useCallback(
+    (plan: AiEditPlan) => {
+      commitImmediateHistory();
+      if (plan.parameters && Object.keys(plan.parameters).length > 0) {
+        setAdjustments((prev) => ({
+          ...prev,
+          ...plan.parameters,
+        }));
+      }
+      if (plan.presetId) {
+        setActivePresetId(plan.presetId);
+        if (plan.presetIntensity !== undefined) {
+          setPresetIntensity(plan.presetIntensity);
+        }
+      }
+      setAiPreviewState(null);
+    },
+    [commitImmediateHistory]
+  );
+
+  const handlePreviewAiPlan = useCallback(
+    (
+      previewAdj: AdjustmentParameters | null,
+      presetId?: string | null,
+      intensity?: number
+    ) => {
+      if (previewAdj) {
+        setAiPreviewState({
+          adjustments: previewAdj,
+          presetId,
+          presetIntensity: intensity,
+        });
+      } else {
+        setAiPreviewState(null);
+      }
+    },
+    []
+  );
+
+  // AI Background Removal Handlers
+  const [isCutoutAiProcessing, setIsCutoutAiProcessing] = useState(false);
+  const [cutoutAiProgress, setCutoutAiProgress] = useState(0);
+  const [cutoutAiStatus, setCutoutAiStatus] = useState('');
+
+  const handleRunCutoutAi = useCallback(
+    async (provider: 'on-device' | 'cloud', userConsent = false) => {
+      if (isCutoutAiProcessing || !imageElementRef.current) return;
+      commitImmediateHistory();
+      setIsCutoutAiProcessing(true);
+      setCutoutAiProgress(10);
+      setCutoutAiStatus('Analyzing image contours...');
+
+      try {
+        const result = await segmentationService.removeBackground(imageElementRef.current, {
+          provider,
+          tolerance: cutout.tolerance,
+          feather: cutout.feather,
+          invert: cutout.invert,
+          userConsent,
+          onProgress: (pct, status) => {
+            setCutoutAiProgress(pct);
+            setCutoutAiStatus(status);
+          },
+        });
+
+        setCutout((prev) => ({
+          ...prev,
+          enabled: true,
+          mode: 'ai',
+          maskData: result.maskData,
+          maskAlpha: result.alphaArray,
+          provider: result.provider,
+          confidence: result.confidence,
+          hasUserConsent: userConsent ? true : prev.hasUserConsent,
+        }));
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          alert(`Background removal failed: ${err.message || 'Unknown error'}`);
+        }
+      } finally {
+        setIsCutoutAiProcessing(false);
+        setCutoutAiProgress(0);
+        setCutoutAiStatus('');
+      }
+    },
+    [commitImmediateHistory, cutout.tolerance, cutout.feather, cutout.invert]
+  );
+
+  const handleCancelCutoutAi = useCallback(() => {
+    segmentationService.cancelCurrentOperation();
+    setIsCutoutAiProcessing(false);
+    setCutoutAiProgress(0);
+    setCutoutAiStatus('');
+  }, []);
+
+  // AI Image Enhancement Handlers
+  const handleApplyEnhancement = useCallback(
+    (enhancedParams: Partial<AdjustmentParameters>, state: EnhancementState) => {
+      commitImmediateHistory();
+      setAdjustments((prev) => ({
+        ...prev,
+        ...enhancedParams,
+      }));
+      setEnhancement(state);
+      setAiPreviewState(null);
+    },
+    [commitImmediateHistory]
+  );
+
+  const handlePreviewEnhancement = useCallback(
+    (previewParams: Partial<AdjustmentParameters> | null) => {
+      if (previewParams) {
+        setAiPreviewState({
+          adjustments: {
+            ...adjustments,
+            ...previewParams,
+          },
+        });
+      } else {
+        setAiPreviewState(null);
+      }
+    },
+    [adjustments]
+  );
+
+  // Inpainting & Mask Stroke Handlers
+  const handleMaskStrokeStart = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    setMaskPastStrokes((prev) => [...prev.slice(-19), snapshot]);
+    setMaskFutureStrokes([]);
+  }, []);
+
+  const handleUndoMaskStroke = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas || maskPastStrokes.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const previous = maskPastStrokes[maskPastStrokes.length - 1];
+    setMaskPastStrokes((prev) => prev.slice(0, -1));
+    setMaskFutureStrokes((prev) => [currentSnapshot, ...prev]);
+    ctx.putImageData(previous, 0, 0);
+  }, [maskPastStrokes]);
+
+  const handleRedoMaskStroke = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas || maskFutureStrokes.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const next = maskFutureStrokes[0];
+    setMaskFutureStrokes((prev) => prev.slice(1));
+    setMaskPastStrokes((prev) => [...prev.slice(-19), currentSnapshot]);
+    ctx.putImageData(next, 0, 0);
+  }, [maskFutureStrokes]);
+
+  const handleClearMask = useCallback(() => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    setMaskPastStrokes((prev) => [...prev.slice(-19), snapshot]);
+    setMaskFutureStrokes([]);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setInpaintPreviewUrl(null);
+  }, []);
+
+  const handleRunInpaint = useCallback(
+    async (provider: 'on-device' | 'cloud-ai', userConsent = false) => {
+      if (isInpaintProcessing || !imageElementRef.current || !maskCanvasRef.current) return;
+      setIsInpaintProcessing(true);
+      setInpaintProgress(10);
+      setInpaintStatus('Analyzing painted mask...');
+
+      try {
+        const result = await inpaintingService.inpaintObject(
+          imageElementRef.current,
+          maskCanvasRef.current,
+          {
+            provider,
+            userConsent,
+            onProgress: (pct, status) => {
+              setInpaintProgress(pct);
+              setInpaintStatus(status);
+            },
+          }
+        );
+        setInpaintPreviewUrl(result.inpaintedDataUrl);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          alert(`Object removal failed: ${err.message || 'Unknown error'}`);
+        }
+      } finally {
+        setIsInpaintProcessing(false);
+        setInpaintProgress(0);
+        setInpaintStatus('');
+      }
+    },
+    []
+  );
+
+  const handleApplyInpaint = useCallback(() => {
+    if (!inpaintPreviewUrl) return;
+    commitImmediateHistory();
+    // Update current image source with the inpainted result
+    loadImage(inpaintPreviewUrl, projectName);
+    // Record in inpaintState
+    const newOp: InpaintOperation = {
+      id: `inpaint_${Date.now()}`,
+      timestamp: Date.now(),
+      maskData: inpaintPreviewUrl,
+      provider: 'on-device',
+      explanation: 'Unwanted object removed and texture reconstructed.',
+    };
+    setInpaintState((prev) => ({
+      operations: [...prev.operations, newOp],
+    }));
+    // Clear mask canvas and preview
+    const canvas = maskCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setMaskPastStrokes([]);
+    setMaskFutureStrokes([]);
+    setInpaintPreviewUrl(null);
+  }, [inpaintPreviewUrl, commitImmediateHistory, projectName]);
+
+  const handleDiscardInpaint = useCallback(() => {
+    setInpaintPreviewUrl(null);
+  }, []);
+
+  const handleRetryInpaint = useCallback(() => {
+    setInpaintPreviewUrl(null);
+  }, []);
+
+  const handleCancelInpaintProcessing = useCallback(() => {
+    inpaintingService.cancelCurrentOperation();
+    setIsInpaintProcessing(false);
+    setInpaintProgress(0);
+    setInpaintStatus('');
+  }, []);
+
   // Toggle Favorite
   const handleToggleFavorite = (pId: string) => {
     const updated = StorageService.toggleFavorite(pId);
     setFavorites(updated);
   };
 
-  // Magic Auto-Tone Handler
+  // Intelligent Histogram-Driven Auto-Tone Handler
   const handleMagicAutoTone = () => {
     commitImmediateHistory();
-    setAdjustments((prev) => ({
-      ...prev,
-      exposure: 0.35,
-      contrast: 18,
-      highlights: -15,
-      shadows: 22,
-      whites: 12,
-      clarity: 14,
-      vibrance: 16,
-    }));
+    setAdjustments((prev) => calculateAutoTone(histogram, prev));
   };
+
+  // Copy Edits / Adjustments Recipe to in-memory & persistent clipboard
+  const handleCopyEdits = useCallback(() => {
+    const recipe = {
+      adjustments: { ...adjustments },
+      wheels: { ...wheels },
+      curves: JSON.parse(JSON.stringify(curves)),
+      hsl: JSON.parse(JSON.stringify(hsl)),
+    };
+    setClipboardEdits(recipe);
+    try {
+      localStorage.setItem('chroma_studio_copied_recipe', JSON.stringify(recipe));
+    } catch {}
+  }, [adjustments, wheels, curves, hsl]);
+
+  // Paste Edits / Adjustments Recipe
+  const handlePasteEdits = useCallback(() => {
+    if (!clipboardEdits) return;
+    commitImmediateHistory();
+    if (clipboardEdits.adjustments) setAdjustments(clipboardEdits.adjustments);
+    if (clipboardEdits.wheels) setWheels(clipboardEdits.wheels);
+    if (clipboardEdits.curves) setCurves(clipboardEdits.curves);
+    if (clipboardEdits.hsl) setHsl(clipboardEdits.hsl);
+  }, [clipboardEdits, commitImmediateHistory]);
+
+  // Reset All Adjustments back to clean neutral baseline
+  const handleResetAllAdjustments = useCallback(() => {
+    commitImmediateHistory();
+    setAdjustments(DEFAULT_ADJUSTMENTS);
+    setActivePresetId(null);
+    setPresetIntensity(100);
+    setCurves(DEFAULT_CURVES);
+    setWheels(DEFAULT_WHEELS);
+    setHsl(DEFAULT_HSL);
+    setCutout(DEFAULT_CUTOUT);
+    setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+  }, [commitImmediateHistory]);
+
+  // Keyboard shortcuts (Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (currentView !== 'editor') return;
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        handleCopyEdits();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        handlePasteEdits();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentView, handleCopyEdits, handlePasteEdits, handleUndo, handleRedo]);
 
   // High-Fidelity Master Export Function
   const handleExport = async (settings: ExportSettings) => {
@@ -754,14 +1274,19 @@ function ChromaStudioApp() {
       customPresets.find((p) => p.id === activePresetId) ||
       null;
 
-    const { adjustments: blendedAdj, wheels: exportWheels, curves: exportCurves } =
-      blendPresetAdjustments(
-        adjustments,
-        activePreset,
-        presetIntensity,
-        wheels,
-        curves
-      );
+    const {
+      adjustments: blendedAdj,
+      wheels: exportWheels,
+      curves: exportCurves,
+      hsl: exportHsl,
+    } = blendPresetAdjustments(
+      adjustments,
+      activePreset,
+      presetIntensity,
+      wheels,
+      curves,
+      hsl
+    );
 
     // Render on offscreen canvas at requested scale
     const offscreen = document.createElement('canvas');
@@ -774,8 +1299,31 @@ function ChromaStudioApp() {
       exportCurves || curves,
       exportWheels || wheels,
       offscreen,
-      settings.scale
+      settings.scale,
+      exportHsl || hsl,
+      cutout,
+      backgroundReplacement,
+      bgImageRef.current
     );
+
+    // For JPEG export with transparent cutout: composite onto an intentional background color (default White)
+    // to prevent black compression artifacts since JPEG standard lacks alpha channel.
+    let exportCanvas: HTMLCanvasElement = offscreen;
+    let cleanupMatteCanvas = false;
+
+    if (settings.format === 'jpeg' && cutout?.enabled && !backgroundReplacement?.enabled) {
+      const matteCanvas = document.createElement('canvas');
+      matteCanvas.width = offscreen.width;
+      matteCanvas.height = offscreen.height;
+      const mCtx = matteCanvas.getContext('2d');
+      if (mCtx) {
+        mCtx.fillStyle = cutout.matteColor || '#ffffff';
+        mCtx.fillRect(0, 0, matteCanvas.width, matteCanvas.height);
+        mCtx.drawImage(offscreen, 0, 0);
+        exportCanvas = matteCanvas;
+        cleanupMatteCanvas = true;
+      }
+    }
 
     // Encode to Blob instead of heavy base64 DataURL
     const mimeType =
@@ -786,12 +1334,16 @@ function ChromaStudioApp() {
         : 'image/jpeg';
 
     const blob = await new Promise<Blob | null>((resolve) =>
-      offscreen.toBlob((b) => resolve(b), mimeType, settings.quality)
+      exportCanvas.toBlob((b) => resolve(b), mimeType, settings.quality)
     );
 
-    // Release offscreen canvas memory
+    // Release canvas memory
     offscreen.width = 0;
     offscreen.height = 0;
+    if (cleanupMatteCanvas) {
+      exportCanvas.width = 0;
+      exportCanvas.height = 0;
+    }
 
     if (!blob) throw new Error('Failed to create export blob');
 
@@ -876,6 +1428,7 @@ function ChromaStudioApp() {
               onOpenProjectsView={() => setCurrentView('my-projects')}
               onOpenProfile={() => setIsProfileOpen(true)}
               onOpenAuth={() => openAuthModal('signin', 'Sign in to access your creative studio and saved projects')}
+              onOpenAiImageGen={() => setIsAiGenModalOpen(true)}
               onSelectTemplate={(template) => {
                 setActiveTemplate(template);
                 setActiveTemplateProject(undefined);
@@ -987,6 +1540,10 @@ function ChromaStudioApp() {
               canRedo={historyFuture.length > 0}
               onUndo={handleUndo}
               onRedo={handleRedo}
+              onResetAll={handleResetAllAdjustments}
+              onCopyEdits={handleCopyEdits}
+              onPasteEdits={handlePasteEdits}
+              canPasteEdits={clipboardEdits !== null}
               onOpenExport={() => setIsExportOpen(true)}
               onOpenSettings={() => setIsSettingsOpen(true)}
               onOpenProfile={() => setIsProfileOpen(true)}
@@ -1010,7 +1567,15 @@ function ChromaStudioApp() {
                 currentEV={adjustments.exposure}
                 activeAspect={geometry.crop.aspectRatio}
                 onAutoTone={handleMagicAutoTone}
+                onOpenAiEnhance={() => {
+                  setActiveTab('ai');
+                  setAiSubMode('enhance');
+                }}
                 onOpenColorLab={() => setActiveTab('colorlab')}
+                onOpenAiAssistant={() => {
+                  setActiveTab('ai');
+                  setAiSubMode('assistant');
+                }}
                 isCropping={activeTab === 'crop'}
                 crop={geometry.crop}
                 onCropChange={(crop) => setGeometry((prev) => ({ ...prev, crop }))}
@@ -1019,6 +1584,11 @@ function ChromaStudioApp() {
                 sourceDimensions={originalDimensions}
                 onZoomChange={setZoomLevel}
                 onResetZoom={() => setZoomLevel(1)}
+                isInpainting={activeTab === 'inpaint'}
+                maskCanvasRef={maskCanvasRef}
+                brushSize={brushSize}
+                brushMode={brushMode}
+                onMaskStrokeStart={handleMaskStrokeStart}
               />
 
               {/* Active Tool Panel Container */}
@@ -1036,6 +1606,9 @@ function ChromaStudioApp() {
                     currentAdjustments={adjustments}
                     currentWheels={wheels}
                     currentCurves={curves}
+                    currentHsl={hsl}
+                    imageElement={imageElementRef.current}
+                    canvasElement={canvasRef.current}
                   />
                 )}
 
@@ -1079,6 +1652,23 @@ function ChromaStudioApp() {
 
                 {activeTab === 'colorlab' && (
                   <div className="flex flex-col gap-3">
+                    <HslColorMixer
+                      hsl={hsl}
+                      onChange={(newHsl) => setHsl(newHsl)}
+                      onResetChannel={(ch) => {
+                        commitImmediateHistory();
+                        setHsl((prev) => ({
+                          ...prev,
+                          [ch]: { hue: 0, saturation: 0, luminance: 0 },
+                        }));
+                      }}
+                      onResetAll={() => {
+                        commitImmediateHistory();
+                        setHsl(DEFAULT_HSL);
+                      }}
+                      onInteractionStart={handleInteractionStart}
+                      onInteractionEnd={handleInteractionEnd}
+                    />
                     <ColorWheelsEditor
                       wheels={wheels}
                       onChange={setWheels}
@@ -1099,6 +1689,71 @@ function ChromaStudioApp() {
                   </div>
                 )}
 
+                {activeTab === 'cutout' && (
+                  <CutoutPanel
+                    cutout={cutout}
+                    onChange={(newCutout) => setCutout(newCutout)}
+                    onReset={() => {
+                      commitImmediateHistory();
+                      setCutout(DEFAULT_CUTOUT);
+                    }}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                    onRunAiSegmentation={handleRunCutoutAi}
+                    isProcessing={isCutoutAiProcessing}
+                    progressPercent={cutoutAiProgress}
+                    progressStatus={cutoutAiStatus}
+                    onCancel={handleCancelCutoutAi}
+                    onToggleCompare={() => setIsComparing((prev) => !prev)}
+                    isComparing={isComparing}
+                    onOpenBackdrop={() => setActiveTab('backdrop')}
+                  />
+                )}
+
+                {activeTab === 'backdrop' && (
+                  <BackgroundReplacementPanel
+                    backgroundState={backgroundReplacement}
+                    cutout={cutout}
+                    onChange={(newState) => setBackgroundReplacement(newState)}
+                    onReset={() => {
+                      commitImmediateHistory();
+                      setBackgroundReplacement(DEFAULT_BACKGROUND_REPLACEMENT);
+                    }}
+                    onInteractionStart={handleInteractionStart}
+                    onInteractionEnd={handleInteractionEnd}
+                    onRunAiSegmentation={handleRunCutoutAi}
+                    isSegmenting={isCutoutAiProcessing}
+                    onToggleCompare={() => setIsComparing((prev) => !prev)}
+                    isComparing={isComparing}
+                  />
+                )}
+
+                {activeTab === 'inpaint' && (
+                  <InpaintPanel
+                    onRunInpaint={handleRunInpaint}
+                    isProcessing={isInpaintProcessing}
+                    progressPercent={inpaintProgress}
+                    progressStatus={inpaintStatus}
+                    onCancelProcessing={handleCancelInpaintProcessing}
+                    brushSize={brushSize}
+                    onBrushSizeChange={setBrushSize}
+                    brushMode={brushMode}
+                    onBrushModeChange={setBrushMode}
+                    onUndoStroke={handleUndoMaskStroke}
+                    onRedoStroke={handleRedoMaskStroke}
+                    canUndoStroke={maskPastStrokes.length > 0}
+                    canRedoStroke={maskFutureStrokes.length > 0}
+                    onClearMask={handleClearMask}
+                    onApply={handleApplyInpaint}
+                    onDiscard={handleDiscardInpaint}
+                    onRetry={handleRetryInpaint}
+                    hasResult={inpaintPreviewUrl !== null}
+                    onToggleCompare={() => setIsComparing((prev) => !prev)}
+                    isComparing={isComparing}
+                    onClose={() => setActiveTab('adjust')}
+                  />
+                )}
+
                 {activeTab === 'effects' && (
                   <EffectsPanel
                     adjustments={adjustments}
@@ -1107,6 +1762,122 @@ function ChromaStudioApp() {
                     onInteractionStart={handleInteractionStart}
                     onInteractionEnd={handleInteractionEnd}
                   />
+                )}
+
+                {activeTab === 'ai' && (
+                  <div className="space-y-2">
+                    {/* Unified AI Hub Navigation */}
+                    <div className="flex items-center gap-1 p-1 bg-[#070B14]/80 rounded-xl border border-white/5 max-w-lg mx-auto overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setAiSubMode('enhance');
+                        }}
+                        className={`flex-1 min-w-[70px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer min-h-[36px] ${
+                          aiSubMode === 'enhance'
+                            ? 'bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-semibold shadow-xs'
+                            : 'text-[#94A3B8] hover:text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">auto_fix_high</span>
+                        <span>Enhance</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setAiSubMode('assistant');
+                        }}
+                        className={`flex-1 min-w-[70px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer min-h-[36px] ${
+                          aiSubMode === 'assistant'
+                            ? 'bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-semibold shadow-xs'
+                            : 'text-[#94A3B8] hover:text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">psychology</span>
+                        <span>Assistant</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setAiSubMode('generate');
+                        }}
+                        className={`flex-1 min-w-[70px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer min-h-[36px] ${
+                          aiSubMode === 'generate'
+                            ? 'bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-semibold shadow-xs'
+                            : 'text-[#94A3B8] hover:text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">brush</span>
+                        <span>Generate</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setActiveTab('cutout');
+                        }}
+                        className="flex-1 min-w-[65px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer min-h-[36px]"
+                        title="Isolate subject & remove background"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">person_remove</span>
+                        <span>Cutout</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setActiveTab('backdrop');
+                        }}
+                        className="flex-1 min-w-[75px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer min-h-[36px]"
+                        title="Replace background with color, image, or AI backdrop"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">wallpaper</span>
+                        <span>Backdrop</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAiPreviewState(null);
+                          setActiveTab('inpaint');
+                        }}
+                        className="flex-1 min-w-[60px] py-1 px-2 rounded-lg text-[10px] sm:text-[11px] font-medium flex items-center justify-center gap-1 text-[#94A3B8] hover:text-white hover:bg-white/5 transition-all cursor-pointer min-h-[36px]"
+                        title="Erase unwanted objects with AI inpainting"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">cleaning_services</span>
+                        <span>Erase</span>
+                      </button>
+                    </div>
+
+                    {aiSubMode === 'enhance' ? (
+                      <AiEnhancePanel
+                        currentAdjustments={adjustments}
+                        imageElement={imageElementRef.current}
+                        onApplyEnhancement={handleApplyEnhancement}
+                        onPreviewEnhancement={handlePreviewEnhancement}
+                        onClose={() => setActiveTab('adjust')}
+                        onToggleCompare={() => setIsComparing((prev) => !prev)}
+                        isComparing={isComparing}
+                      />
+                    ) : aiSubMode === 'assistant' ? (
+                      <AiAssistantPanel
+                        currentAdjustments={adjustments}
+                        currentPresetId={activePresetId}
+                        currentPresetIntensity={presetIntensity}
+                        onApplyPlan={handleApplyAiPlan}
+                        onPreviewPlan={handlePreviewAiPlan}
+                        onCancel={() => setAiPreviewState(null)}
+                        onSwitchTab={(tab) => setActiveTab(tab)}
+                      />
+                    ) : (
+                      <AiImageGenPanel
+                        onOpenInEditor={(url, title) => handleOpenGeneratedInEditor(url, title)}
+                        onUseAsBackdrop={imageSrc ? handleUseGeneratedAsBackdrop : undefined}
+                        onClose={() => setActiveTab('adjust')}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1129,6 +1900,14 @@ function ChromaStudioApp() {
         originalWidth={originalDimensions.width}
         originalHeight={originalDimensions.height}
         onExport={handleExport}
+      />
+
+      {/* Global AI Image Generation Modal */}
+      <AiImageGenModal
+        isOpen={isAiGenModalOpen}
+        onClose={() => setIsAiGenModalOpen(false)}
+        onOpenInEditor={handleOpenGeneratedInEditor}
+        onUseAsBackdrop={imageSrc ? handleUseGeneratedAsBackdrop : undefined}
       />
 
       {/* Global Settings Modal */}
@@ -1157,6 +1936,13 @@ function ChromaStudioApp() {
         }}
         onClearLocalData={() => setRecentProjects([])}
       />
+
+      {/* Global Pro Upgrade Modal */}
+      <UpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={closeUpgradeModal}
+        reason={upgradeReason}
+      />
     </>
   );
 }
@@ -1164,7 +1950,9 @@ function ChromaStudioApp() {
 export function App() {
   return (
     <AuthProvider>
-      <ChromaStudioApp />
+      <SubscriptionProvider>
+        <ChromaStudioApp />
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }

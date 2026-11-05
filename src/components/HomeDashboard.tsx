@@ -12,6 +12,7 @@ import { ProfileBottomSheet } from './profile/ProfileBottomSheet';
 import { AppBottomNavigation, BottomNavTab } from './navigation/AppBottomNavigation';
 import { NavigationDrawer } from './navigation/NavigationDrawer';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 interface HomeDashboardProps {
   onStartWithSample: (sample: SampleImage) => void;
@@ -26,6 +27,7 @@ interface HomeDashboardProps {
   onOpenProfile: () => void;
   onOpenAuth: () => void;
   onSelectTemplate?: (template: ReadyMadeTemplate) => void;
+  onOpenAiImageGen?: () => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -40,9 +42,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenProfile,
   onOpenAuth,
   onSelectTemplate,
+  onOpenAiImageGen,
   recentProjects,
 }) => {
   const { user, profile, requireAuth, openAuthModal } = useAuth();
+  const { isPro, openUpgradeModal } = useSubscription();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // UI state
@@ -205,12 +209,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           }}
         />
 
-        {/* B. The 4 Creative Workspace Cards */}
+        {/* B. The Creative Workspace Cards */}
         <WorkspaceCards
           onOpenEditor={() => requireAuth({ type: 'editor' }, () => fileInputRef.current?.click(), 'Sign in to access the Photo Editor')}
           onOpenTemplates={onOpenTemplates}
           onOpenCollage={onOpenCollage}
           onOpenCarousel={onOpenCarousel}
+          onOpenAiImageGen={onOpenAiImageGen}
         />
 
         {/* C. Trending Templates Carousel */}
@@ -240,8 +245,17 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         {/* E. Upgrade to Pro & Storage Section */}
         <UpgradeProCard
-          onUpgradeClick={() => requireAuth({ type: 'profile' }, onOpenProfile, 'Sign in to upgrade to Chroma Pro')}
+          onUpgradeClick={() => {
+            if (!user) {
+              openAuthModal('signin', 'Sign in to access Chroma Pro features');
+            } else if (isPro) {
+              onOpenProfile();
+            } else {
+              openUpgradeModal('Upgrade to Chroma Pro for unlimited creative AI and 4K exports');
+            }
+          }}
           storageUsedMB={2450} // 2.4 GB matching screenshot
+          isPro={isPro}
         />
       </main>
 
@@ -266,7 +280,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           }
         }}
         onOpenSettings={onOpenSettings}
-        onOpenUpgrade={() => requireAuth({ type: 'profile' }, onOpenProfile, 'Sign in to manage your plan')}
+        onOpenUpgrade={() => {
+          if (!user) {
+            openAuthModal('signin', 'Sign in to access Chroma Pro');
+          } else if (isPro) {
+            onOpenProfile();
+          } else {
+            openUpgradeModal('Upgrade to Chroma Pro for unlimited AI and 4K exports');
+          }
+        }}
       />
 
       {/* ANDROID PROFILE BOTTOM SHEET / DROPDOWN */}

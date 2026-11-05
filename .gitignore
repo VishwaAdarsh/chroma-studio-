@@ -15,6 +15,15 @@ dist-ssr
 .env.*
 !.env.example
 
+# Keystore & Android signing credentials
+*.keystore
+*.jks
+keystore.properties
+signing.properties
+
+# Supabase temp & CLI cache
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

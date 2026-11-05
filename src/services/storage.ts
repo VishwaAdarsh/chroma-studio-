@@ -62,6 +62,7 @@ export class StorageService {
   private static dbPromise: Promise<IDBDatabase> | null = null;
   private static migrationDone = false;
   private static cachedProjects: Project[] = [];
+  private static activeObjectUrls = new Map<string, string>();
 
   /**
    * Opens or returns the singleton IndexedDB connection
@@ -223,7 +224,14 @@ export class StorageService {
               imgReq.onsuccess = () => {
                 if (imgReq.result && imgReq.result.blob) {
                   try {
-                    proj.imageSrc = URL.createObjectURL(imgReq.result.blob);
+                    if (this.activeObjectUrls.has(proj.id)) {
+                      try {
+                        URL.revokeObjectURL(this.activeObjectUrls.get(proj.id)!);
+                      } catch {}
+                    }
+                    const objUrl = URL.createObjectURL(imgReq.result.blob);
+                    this.activeObjectUrls.set(proj.id, objUrl);
+                    proj.imageSrc = objUrl;
                   } catch {
                     // In environments without URL.createObjectURL
                   }
@@ -372,6 +380,14 @@ export class StorageService {
         tx.onerror = () => reject(tx.error);
       });
       this.cachedProjects = this.cachedProjects.filter((p) => p.id !== projectId);
+
+      // Clean up in-memory object URL if active
+      if (this.activeObjectUrls.has(projectId)) {
+        try {
+          URL.revokeObjectURL(this.activeObjectUrls.get(projectId)!);
+        } catch {}
+        this.activeObjectUrls.delete(projectId);
+      }
 
       // Soft delete from cloud if project was synced
       if (projToDelete?.userId) {

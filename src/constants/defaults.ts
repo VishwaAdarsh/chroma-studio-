@@ -1,4 +1,12 @@
-import { AdjustmentParameters, ColorWheels, GeometryState, ToneCurves } from '../types/editor';
+import {
+  AdjustmentParameters,
+  BackgroundReplacementState,
+  ColorWheels,
+  CutoutState,
+  GeometryState,
+  HslAdjustments,
+  ToneCurves,
+} from '../types/editor';
 
 export const DEFAULT_ADJUSTMENTS: AdjustmentParameters = {
   exposure: 0,
@@ -16,9 +24,21 @@ export const DEFAULT_ADJUSTMENTS: AdjustmentParameters = {
   clarity: 0,
   sharpen: 0,
   blur: 0,
+  noiseReduction: 0,
   vignette: 0,
   grain: 0,
   fade: 0,
+};
+
+export const DEFAULT_HSL: HslAdjustments = {
+  red: { hue: 0, saturation: 0, luminance: 0 },
+  orange: { hue: 0, saturation: 0, luminance: 0 },
+  yellow: { hue: 0, saturation: 0, luminance: 0 },
+  green: { hue: 0, saturation: 0, luminance: 0 },
+  aqua: { hue: 0, saturation: 0, luminance: 0 },
+  blue: { hue: 0, saturation: 0, luminance: 0 },
+  purple: { hue: 0, saturation: 0, luminance: 0 },
+  magenta: { hue: 0, saturation: 0, luminance: 0 },
 };
 
 export const DEFAULT_GEOMETRY: GeometryState = {
@@ -45,4 +65,32 @@ export const DEFAULT_WHEELS: ColorWheels = {
   shadows: { hue: 0, saturation: 0, luminance: 0 },
   midtones: { hue: 0, saturation: 0, luminance: 0 },
   highlights: { hue: 0, saturation: 0, luminance: 0 },
+};
+
+export const DEFAULT_CUTOUT: CutoutState = {
+  enabled: false,
+  mode: 'auto',
+  tolerance: 35,
+  feather: 4,
+  invert: false,
+  matteColor: '#ffffff',
+};
+
+export const DEFAULT_BACKGROUND_REPLACEMENT: BackgroundReplacementState = {
+  enabled: false,
+  mode: 'color',
+  color: '#FFFFFF',
+  bgTransform: {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    fit: 'cover',
+    blur: 0,
+  },
+  fgTransform: {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  },
+  feather: 2,
 };

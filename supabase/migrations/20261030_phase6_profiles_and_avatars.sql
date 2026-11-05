@@ -16,20 +16,20 @@ CREATE POLICY "Users can read own profile"
   ON public.profiles
   FOR SELECT
   TO authenticated
-  USING (auth.uid() = id);
+  USING ((select auth.uid()) = id);
 
 CREATE POLICY "Users can update own profile"
   ON public.profiles
   FOR UPDATE
   TO authenticated
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING ((select auth.uid()) = id)
+  WITH CHECK ((select auth.uid()) = id);
 
 CREATE POLICY "Users can insert own profile"
   ON public.profiles
   FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK ((select auth.uid()) = id);
 
 -- 3. Automatic Profile Creation Trigger on auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -59,6 +59,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Restrict direct RPC execution of trigger function
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth, SUPPORTED_COUNTRIES, normalizePhoneNumber, isValidE164 } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { StorageService } from '../../services/storage';
 
 interface ProfileModalProps {
@@ -28,6 +29,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'subscription' | 'storage' | 'preferences' | 'security' | 'notifications'>('profile');
+  const { isPro, plan: subPlan, status: subStatus, currentPeriodEnd, openUpgradeModal, refreshSubscription, loading: subLoading } = useSubscription();
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -394,13 +396,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       <div className="flex items-center justify-between pt-0.5">
                         <span className="text-[#94A3B8]">Plan</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-white">Free Plan</span>
-                          <button
-                            onClick={() => setActiveTab('subscription')}
-                            className="px-2 py-0.5 rounded-md bg-[#8B5CF6] text-white text-[10px] font-bold"
-                          >
-                            Upgrade
-                          </button>
+                          {isPro ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#F59E0B] via-[#EC4899] to-[#8B5CF6] text-white text-[10px] font-extrabold shadow-sm flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px]">crown</span>
+                              <span>CHROMA PRO</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-white">Free Plan</span>
+                              <button
+                                onClick={() => openUpgradeModal('Upgrade to Chroma Pro for unlimited creative AI and 4K exports')}
+                                className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] hover:brightness-110 text-white text-[10px] font-bold cursor-pointer transition-all"
+                              >
+                                Upgrade
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -497,23 +508,122 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
             {/* TAB 2: SUBSCRIPTION */}
             {activeTab === 'subscription' && (
-              <div className="flex flex-col gap-4">
-                <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-[16px] text-white">Chroma Studio Pro</h4>
-                      <p className="text-[12px] text-[#94A3B8]">Unlimited cloud sync, 100+ creative templates, and 4K exports.</p>
+              <div className="flex flex-col gap-5">
+                {/* Current Active Plan Card */}
+                <div className="p-6 rounded-3xl bg-[#111827] border border-white/10 relative overflow-hidden flex flex-col gap-5 shadow-xl">
+                  <div className="absolute top-0 right-0 w-80 h-32 bg-gradient-to-l from-[#8B5CF6]/20 via-[#EC4899]/10 to-transparent blur-2xl pointer-events-none" />
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#F59E0B] via-[#EC4899] to-[#8B5CF6] flex items-center justify-center shadow-lg shadow-purple-950/40">
+                        <span className="material-symbols-outlined text-[24px] text-white">crown</span>
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-[18px] text-white tracking-tight flex items-center gap-2">
+                          {isPro ? (subPlan === 'pro_yearly' ? 'Chroma Pro (Yearly)' : 'Chroma Pro (Monthly)') : 'Chroma Free Plan'}
+                          {isPro && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-[10px]">
+                              ACTIVE
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-[12px] text-[#94A3B8]">
+                          {isPro
+                            ? 'Full access to Cloud AI Generative Suite, Smart Presets & 4K exports'
+                            : 'Basic photo editing, offline filters, and local draft saving'}
+                        </p>
+                      </div>
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 text-[#A855F7] font-bold text-[12px]">
-                      $9.99 / mo
-                    </span>
+
+                    <div className="flex flex-col items-start sm:items-end">
+                      <span className="text-[20px] font-black text-white">
+                        {isPro
+                          ? (subPlan === 'pro_yearly' ? '₹599 / yr' : '₹99 / mo')
+                          : '₹0'}
+                      </span>
+                      <span className="text-[11px] text-[#94A3B8]">
+                        {isPro ? (subPlan === 'pro_yearly' ? 'Billed annually (~₹49.90/mo)' : 'Billed monthly') : 'Free forever'}
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => alert('Chroma Pro checkout is active in production mode.')}
-                    className="self-start mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white font-bold text-[13px] shadow-lg shadow-purple-950/40"
-                  >
-                    Upgrade to Pro Now
-                  </button>
+
+                  {/* Subscription Details & Expiry Info */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-[#94A3B8]">Entitlement Status</span>
+                      <span className="text-[13px] font-bold text-white flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${isPro ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                        {isPro ? 'Pro Subscribed (Active)' : 'Free Tier'}
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1">
+                      <span className="text-[11px] font-medium text-[#94A3B8]">
+                        {isPro ? 'Current Period Ends' : 'Billing Cycle'}
+                      </span>
+                      <span className="text-[13px] font-bold text-white">
+                        {isPro && currentPeriodEnd
+                          ? new Date(currentPeriodEnd).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : 'No active renewal'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pro Plan Feature Highlights */}
+                  <div className="flex flex-col gap-2.5 relative z-10 pt-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Included in Chroma Pro</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+                      {[
+                        'Generative AI Photo Editing Assistant',
+                        'Cloud AI Deep Multi-zone Enhancement',
+                        'Generative AI Object Removal & Inpainting',
+                        'Ultra-precise AI Edge Cutout with Alpha',
+                        'Synthetic AI Backdrop Replacement',
+                        'Text-to-Image Synthesis Studio',
+                        '100+ Professional Templates & Fonts',
+                        'Uncompressed 4K Ultra Lossless Exports',
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-[#CBD5E1]">
+                          <span className="material-symbols-outlined text-[16px] text-emerald-400">check_circle</span>
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action CTA */}
+                  <div className="flex items-center gap-3 pt-3 border-t border-white/10 relative z-10">
+                    {!isPro ? (
+                      <button
+                        onClick={() => openUpgradeModal('Upgrade to Chroma Pro to unlock all AI tools and 4K exports')}
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#8B5CF6] via-[#EC4899] to-[#F59E0B] text-white font-bold text-[13px] shadow-lg shadow-purple-950/40 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">crown</span>
+                        <span>Upgrade to Pro (from ₹99/mo)</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={async () => {
+                            await refreshSubscription();
+                            setStatusMsg({ type: 'success', text: 'Subscription status refreshed.' });
+                          }}
+                          disabled={subLoading}
+                          className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-[12px] border border-white/10 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span className={`material-symbols-outlined text-[16px] ${subLoading ? 'animate-spin' : ''}`}>sync</span>
+                          <span>{subLoading ? 'Refreshing...' : 'Refresh Status'}</span>
+                        </button>
+                        <span className="text-[11px] text-[#94A3B8]">
+                          Secured via Razorpay payments.
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { GeometryState, HistogramData } from '../types/editor';
 
 interface CanvasViewProps {
@@ -10,7 +10,9 @@ interface CanvasViewProps {
   currentEV: number;
   activeAspect: string;
   onAutoTone: () => void;
+  onOpenAiEnhance?: () => void;
   onOpenColorLab: () => void;
+  onOpenAiAssistant?: () => void;
   isCropping?: boolean;
   crop?: GeometryState['crop'];
   onCropChange?: (crop: GeometryState['crop']) => void;
@@ -19,6 +21,13 @@ interface CanvasViewProps {
   sourceDimensions?: { width: number; height: number };
   onResetZoom?: () => void;
   onZoomChange?: (zoom: number) => void;
+  // Inpainting & Mask Painting
+  isInpainting?: boolean;
+  maskCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  brushSize?: number;
+  brushMode?: 'brush' | 'eraser';
+  onMaskStrokeStart?: () => void;
+  onMaskStrokeEnd?: () => void;
 }
 
 type CropHandle =
@@ -41,7 +50,9 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   currentEV,
   activeAspect,
   onAutoTone,
+  onOpenAiEnhance,
   onOpenColorLab,
+  onOpenAiAssistant,
   isCropping = false,
   crop,
   onCropChange,
@@ -50,6 +61,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
   sourceDimensions = { width: 1920, height: 1080 },
   onResetZoom,
   onZoomChange,
+  isInpainting = false,
+  maskCanvasRef,
+  brushSize = 25,
+  brushMode = 'brush',
+  onMaskStrokeStart,
+  onMaskStrokeEnd,
 }) => {
   const [showGrid, setShowGrid] = useState(false);
   const [wandAnimating, setWandAnimating] = useState(false);
@@ -73,8 +90,107 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
 
   const handleMagicAutoTone = () => {
     setWandAnimating(true);
-    onAutoTone();
+    if (onOpenAiEnhance) {
+      onOpenAiEnhance();
+    } else {
+      onAutoTone();
+    }
     setTimeout(() => setWandAnimating(false), 300);
+  };
+
+  // Mask Drawing State & Synchronization
+  const isMaskDrawingRef = useRef(false);
+  const lastMaskPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (isInpainting && canvasRef.current && maskCanvasRef?.current) {
+      const mainCanvas = canvasRef.current;
+      const maskCanvas = maskCanvasRef.current;
+      if (maskCanvas.width !== mainCanvas.width || maskCanvas.height !== mainCanvas.height) {
+        maskCanvas.width = mainCanvas.width;
+        maskCanvas.height = mainCanvas.height;
+      }
+    }
+  }, [isInpainting, canvasRef, maskCanvasRef]);
+
+  const getMaskCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = maskCanvasRef?.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const handleMaskPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const coords = getMaskCoords(e);
+    const canvas = maskCanvasRef?.current;
+    if (!coords || !canvas) return;
+
+    onMaskStrokeStart?.();
+    isMaskDrawingRef.current = true;
+    lastMaskPointRef.current = coords;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (brushMode === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.65)';
+      }
+      ctx.arc(coords.x, coords.y, brushSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleMaskPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isMaskDrawingRef.current || !lastMaskPointRef.current) return;
+    const coords = getMaskCoords(e);
+    const canvas = maskCanvasRef?.current;
+    if (!coords || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = brushSize;
+      if (brushMode === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.65)';
+      }
+      ctx.moveTo(lastMaskPointRef.current.x, lastMaskPointRef.current.y);
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+      lastMaskPointRef.current = coords;
+    }
+  };
+
+  const handleMaskPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isMaskDrawingRef.current) {
+      isMaskDrawingRef.current = false;
+      lastMaskPointRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      onMaskStrokeEnd?.();
+    }
   };
 
   // Generate SVG histogram path
@@ -94,7 +210,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
 
   // Pan Pointer Handlers (when zoomed in)
   const handleViewportPointerDown = (e: React.PointerEvent) => {
-    if (isCropping) return;
+    if (isCropping || isInpainting) return;
     if (zoomLevel > 1) {
       isPanningRef.current = true;
       panStartRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
@@ -211,7 +327,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
       onPointerMove={handleViewportPointerMove}
       onPointerUp={handleViewportPointerUp}
       onPointerCancel={handleViewportPointerUp}
-      className={`relative w-full aspect-[4/5] max-h-[55vh] rounded-xl overflow-hidden bg-surface-container-lowest shadow-md flex items-center justify-center border border-outline-variant select-none group touch-none ${
+      className={`relative w-full aspect-[4/5] max-h-[46vh] sm:max-h-[55vh] rounded-xl overflow-hidden bg-[#070B14] shadow-md flex items-center justify-center border border-outline-variant select-none group touch-none ${
         zoomLevel > 1 && !isCropping ? 'cursor-grab active:cursor-grabbing' : ''
       }`}
     >
@@ -222,13 +338,25 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           transform: `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
         }}
       >
-        {/* Render Canvas */}
-        <canvas
-          ref={canvasRef}
-          className={`max-w-full max-h-full object-contain shadow-xs transition-opacity duration-150 ${
-            isComparing ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
+        {/* Render Canvas with Checkerboard Background for Transparencies */}
+        <div className="relative max-w-full max-h-full flex items-center justify-center checkerboard-bg rounded-lg overflow-hidden shadow-2xl">
+          <canvas
+            ref={canvasRef}
+            className={`max-w-full max-h-full object-contain shadow-xs transition-opacity duration-150 ${
+              isComparing ? 'opacity-0' : 'opacity-100'
+            }`}
+          />
+          {isInpainting && (
+            <canvas
+              ref={maskCanvasRef}
+              onPointerDown={handleMaskPointerDown}
+              onPointerMove={handleMaskPointerMove}
+              onPointerUp={handleMaskPointerUp}
+              onPointerCancel={handleMaskPointerUp}
+              className="absolute inset-0 w-full h-full object-contain pointer-events-auto touch-none z-20 cursor-crosshair"
+            />
+          )}
+        </div>
 
         {/* Hold-to-compare Original Image Overlay */}
         {originalImageSrc && (
@@ -453,13 +581,13 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
       )}
 
       {/* Floating Canvas Quick-Adjust Capsule Dock */}
-      <div className="absolute bottom-3 inset-x-0 mx-auto w-fit bg-surface-container-lowest/90 backdrop-blur-xl px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 z-20 border border-outline-variant">
+      <div className="absolute bottom-2 sm:bottom-3 inset-x-0 mx-auto w-fit max-w-[95%] bg-[#070B14]/90 backdrop-blur-xl px-1.5 sm:px-2.5 py-1 rounded-full shadow-lg flex items-center gap-0.5 sm:gap-1 z-20 border border-white/10">
         {/* Aspect Ratio Badge */}
         <div
-          className="h-7 px-2 rounded-full text-on-surface-variant flex items-center gap-1 font-mono text-[11px]"
+          className="h-7 px-1.5 sm:px-2 rounded-full text-on-surface-variant flex items-center gap-1 font-mono text-[10px] sm:text-[11px]"
           title="Current Aspect Ratio"
         >
-          <span className="material-symbols-outlined text-[15px]">crop_rotate</span>
+          <span className="material-symbols-outlined text-[14px] sm:text-[15px]">crop_rotate</span>
           <span>{activeAspect}</span>
         </div>
 
@@ -473,7 +601,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           }`}
           title="Magic Auto Tone (One-Tap Balance)"
         >
-          <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">auto_fix_high</span>
         </button>
 
         {/* Grid Guide Toggle */}
@@ -486,7 +614,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           }`}
           title="Toggle Rule-of-Thirds Grid"
         >
-          <span className="material-symbols-outlined text-[16px]">grid_goldenratio</span>
+          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">grid_goldenratio</span>
         </button>
 
         {/* Zoom Toggle (Fit -> 1.6x -> 2.4x -> Fit) */}
@@ -503,7 +631,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
             className="w-7 h-7 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center active:scale-90 transition-all cursor-pointer"
             title="Toggle Zoom level"
           >
-            <span className="material-symbols-outlined text-[16px]">
+            <span className="material-symbols-outlined text-[15px] sm:text-[16px]">
               {zoomLevel > 1 ? 'zoom_out' : 'zoom_in'}
             </span>
           </button>
@@ -515,9 +643,22 @@ export const CanvasView: React.FC<CanvasViewProps> = ({
           className="w-7 h-7 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer"
           title="Open Color Lab & Palette"
         >
-          <span className="material-symbols-outlined text-[16px]">palette</span>
+          <span className="material-symbols-outlined text-[15px] sm:text-[16px]">palette</span>
           <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_4px_rgba(191,4,17,0.6)]" />
         </button>
+
+        {/* AI Assistant Quick Shortcut */}
+        {onOpenAiAssistant && (
+          <button
+            onClick={onOpenAiAssistant}
+            className="w-7 h-7 rounded-full text-on-surface-variant hover:text-[#EC4899] hover:bg-surface-container-high flex items-center justify-center relative active:scale-90 transition-all cursor-pointer"
+            title="Open AI Photo Assistant"
+          >
+            <span className="material-symbols-outlined text-[15px] sm:text-[16px] text-transparent bg-clip-text bg-gradient-to-tr from-[#8B5CF6] to-[#EC4899]">
+              auto_awesome
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

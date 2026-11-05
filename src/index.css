@@ -52,6 +52,13 @@
   }
 }
 
+/* Transparent Alpha Checkerboard Pattern for Cutout & Background Removal */
+.checkerboard-bg {
+  background-color: #070B14;
+  background-image: repeating-conic-gradient(rgba(255, 255, 255, 0.08) 0% 25%, transparent 0% 50%);
+  background-size: 16px 16px;
+}
+
 /* Glassmorphism tokens for Dark Creative-Studio Theme */
 .glass-panel {
   background: rgba(17, 24, 39, 0.78);

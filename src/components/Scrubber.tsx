@@ -56,25 +56,25 @@ export const Scrubber: React.FC<ScrubberProps> = ({
             <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(191,4,17,0.6)] shrink-0" />
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {hasChanged && (
             <button
               onClick={handleResetWithHistory}
-              className="text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all cursor-pointer"
+              className="text-[9px] sm:text-[10px] text-outline hover:text-primary flex items-center gap-0.5 active:scale-95 transition-all cursor-pointer min-h-[30px] px-1.5 rounded hover:bg-white/5"
               title="Reset to 0"
             >
               <span className="material-symbols-outlined text-[12px]">refresh</span>
               <span>RESET</span>
             </button>
           )}
-          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-surface-container-lowest text-primary border border-outline-variant tabular-nums shadow-xs">
+          <span className="text-[10px] sm:text-[11px] font-mono font-semibold px-1.5 sm:px-2 py-0.5 rounded bg-surface-container-lowest text-primary border border-outline-variant tabular-nums shadow-xs">
             {displayVal}
           </span>
         </div>
       </div>
 
       {/* Tactile Scrubber Track */}
-      <div className="relative w-full h-7 flex items-center px-1">
+      <div className="relative w-full h-8 flex items-center px-1 touch-none">
         {/* Center Zero Notch */}
         <div
           className="absolute top-1.5 bottom-1.5 w-0.5 bg-outline rounded-full pointer-events-none z-0 opacity-70"

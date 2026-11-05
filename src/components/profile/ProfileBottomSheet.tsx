@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 
 interface ProfileBottomSheetProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
   onOpenAuth,
 }) => {
   const { user, profile, signOut, isGuest, openAuthModal } = useAuth();
+  const { isPro } = useSubscription();
 
   if (!isOpen) return null;
 
@@ -78,8 +80,14 @@ export const ProfileBottomSheet: React.FC<ProfileBottomSheetProps> = ({
             <p className="text-[11px] text-[#94A3B8] truncate">{displayEmail}</p>
 
             <div className="flex items-center justify-between mt-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[#CBD5E1]">
-                {user ? 'Free Plan' : 'Public Visitor'}
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                user
+                  ? isPro
+                    ? 'bg-gradient-to-r from-[#F59E0B]/20 to-[#EC4899]/20 border-[#F59E0B]/40 text-[#F59E0B]'
+                    : 'bg-white/5 border border-white/10 text-[#CBD5E1]'
+                  : 'bg-white/5 border border-white/10 text-[#94A3B8]'
+              }`}>
+                {user ? (isPro ? '★ Pro Member' : 'Free Plan') : 'Public Visitor'}
               </span>
               <button
                 onClick={handleGuardedProfileClick}

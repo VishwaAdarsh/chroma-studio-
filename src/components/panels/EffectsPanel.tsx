@@ -10,7 +10,7 @@ interface EffectsPanelProps {
   onInteractionEnd?: () => void;
 }
 
-type EffectParam = 'clarity' | 'sharpen' | 'blur' | 'vignette' | 'grain' | 'fade';
+type EffectParam = 'noiseReduction' | 'clarity' | 'sharpen' | 'blur' | 'vignette' | 'grain' | 'fade';
 
 export const EffectsPanel: React.FC<EffectsPanelProps> = ({
   adjustments,
@@ -25,12 +25,13 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({
     EffectParam,
     { label: string; min: number; max: number; step: number; unit?: string }
   > = {
-    vignette: { label: 'Vignette Darkening', min: 0, max: 100, step: 1, unit: '%' },
-    grain: { label: '35mm Film Grain', min: 0, max: 100, step: 1, unit: '%' },
-    fade: { label: 'Matte Black Fade', min: 0, max: 100, step: 1, unit: '%' },
+    noiseReduction: { label: 'Noise Reduction', min: 0, max: 100, step: 1, unit: '%' },
     clarity: { label: 'Midtone Clarity', min: -100, max: 100, step: 1, unit: '%' },
     sharpen: { label: 'Edge Sharpening', min: 0, max: 100, step: 1, unit: '%' },
     blur: { label: 'Gaussian Soft Blur', min: 0, max: 100, step: 1, unit: '%' },
+    vignette: { label: 'Vignette Darkening', min: 0, max: 100, step: 1, unit: '%' },
+    grain: { label: '35mm Film Grain', min: 0, max: 100, step: 1, unit: '%' },
+    fade: { label: 'Matte Black Fade', min: 0, max: 100, step: 1, unit: '%' },
   };
 
   const currentConfig = effectConfigs[activeParam];

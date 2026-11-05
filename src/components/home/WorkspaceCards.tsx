@@ -5,6 +5,7 @@ interface WorkspaceCardsProps {
   onOpenTemplates: () => void;
   onOpenCollage: () => void;
   onOpenCarousel: () => void;
+  onOpenAiImageGen?: () => void;
 }
 
 export const WorkspaceCards: React.FC<WorkspaceCardsProps> = ({
@@ -12,6 +13,7 @@ export const WorkspaceCards: React.FC<WorkspaceCardsProps> = ({
   onOpenTemplates,
   onOpenCollage,
   onOpenCarousel,
+  onOpenAiImageGen,
 }) => {
   const cards = [
     {
@@ -21,6 +23,15 @@ export const WorkspaceCards: React.FC<WorkspaceCardsProps> = ({
       icon: 'auto_fix_high',
       iconGradient: 'from-[#EC4899] to-[#8B5CF6]',
       onClick: onOpenEditor,
+    },
+    {
+      id: 'card-ai-gen',
+      title: 'AI Generator',
+      description: 'Text to image studio',
+      icon: 'auto_awesome',
+      iconGradient: 'from-[#8B5CF6] to-[#EC4899]',
+      onClick: onOpenAiImageGen || onOpenEditor,
+      badge: 'AI',
     },
     {
       id: 'card-templates',
@@ -49,7 +60,7 @@ export const WorkspaceCards: React.FC<WorkspaceCardsProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 w-full">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 w-full">
       {cards.map((card) => (
         <button
           key={card.id}
