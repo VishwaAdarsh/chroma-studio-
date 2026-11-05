@@ -24,6 +24,10 @@ signing.properties
 # Supabase temp & CLI cache
 supabase/.temp/
 
+# Android binaries
+*.apk
+*.aab
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
