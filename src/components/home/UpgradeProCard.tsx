@@ -8,13 +8,13 @@ interface UpgradeProCardProps {
 
 export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
   onUpgradeClick,
-  storageUsedMB = 240, // 0.24 GB default
+  storageUsedMB = 0,
   isPro = false,
 }) => {
-  const totalStorageMB = isPro ? 10240 : 1024; // 10 GB for Pro, 1 GB for free
-  const usedPercent = Math.min(100, Math.max(5, Math.round((storageUsedMB / totalStorageMB) * 100)));
-  const formattedUsed = storageUsedMB > 1024 ? `${(storageUsedMB / 1024).toFixed(1)} GB` : `${storageUsedMB} MB`;
-  const formattedTotal = isPro ? '10 GB' : '1 GB';
+  const totalStorageMB = isPro ? 10240 : 100; // 10 GB for Pro, 100 MB for Free
+  const usedPercent = Math.min(100, Math.max(0, Math.round((storageUsedMB / totalStorageMB) * 100)));
+  const formattedUsed = storageUsedMB >= 1024 ? `${(storageUsedMB / 1024).toFixed(1)} GB` : `${storageUsedMB} MB`;
+  const formattedTotal = isPro ? '10 GB' : '100 MB';
 
   return (
     <div className="w-full rounded-2xl bg-[#111827]/80 border border-white/10 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 backdrop-blur-xl shadow-xl shadow-black/20">

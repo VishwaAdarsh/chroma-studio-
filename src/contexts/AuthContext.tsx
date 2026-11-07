@@ -5,6 +5,8 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import { syncEngine } from '../services/syncEngine';
+import { StorageService } from '../services/storage';
+import { SubscriptionService } from '../services/subscription/subscriptionService';
 
 export interface PhoneAuthCountry {
   name: string;
@@ -397,9 +399,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchProfile]);
 
-  // Connect user session to background SyncEngine
+  // Connect user session to background SyncEngine, StorageService & Subscriptions
   useEffect(() => {
+    StorageService.setCurrentUser(user ? user.id : null);
     syncEngine.setUser(user);
+    if (!user) {
+      SubscriptionService.clearCache();
+    }
   }, [user]);
 
   // 1. Email Sign Up
@@ -649,6 +655,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Sign-out error:', err);
       }
     }
+    // Clean up user-specific storage caches, active object URLs, autosaves
+    try {
+      await StorageService.onUserSignOut();
+    } catch (e) {
+      console.warn('Error clearing user storage on sign-out:', e);
+    }
+    try {
+      SubscriptionService.clearCache();
+    } catch {}
+
     setUser(null);
     setSession(null);
     setProfile(null);

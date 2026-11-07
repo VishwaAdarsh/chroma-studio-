@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { COLLAGE_LAYOUTS } from '../../data/collageLayouts';
 import { canvasToBlob, renderCollageProject } from '../../engine/designRenderer';
 import { StorageService } from '../../services/storage';
+import { ExportService } from '../../services/exportService';
 import {
   CanvasBackground,
   CollageLayoutDefinition,
@@ -245,16 +246,19 @@ export const CollageEditor: React.FC<CollageEditorProps> = ({
     try {
       const exportCanvas = document.createElement('canvas');
       await renderCollageProject(project, exportCanvas, 1);
+      const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
       const blob = await canvasToBlob(exportCanvas, format, 0.95);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.download = `${project.name.replace(/\s+/g, '_')}.${format}`;
-      a.href = url;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
+      const fileName = `${project.name.replace(/\s+/g, '_')}.${format}`;
+      const result = await ExportService.saveExportedFile(blob, fileName, mime, {
+        dialogTitle: 'Save or Share Collage',
+        shareText: `Chroma Studio Collage: ${project.name}`,
+      });
+      if (!result.success) {
+        alert(result.error || 'Failed to export collage.');
+      }
+    } catch (err: any) {
       console.error('Export error', err);
-      alert('Failed to export collage.');
+      alert(err?.message || 'Failed to export collage.');
     } finally {
       setIsExporting(false);
     }

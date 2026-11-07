@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'studio.chroma.photoeditor',
   appName: 'Chroma Studio',
   webDir: 'dist',
-  backgroundColor: '#070B14',
+  backgroundColor: '#09070A',
   server: {
     androidScheme: 'https',
   },
@@ -12,14 +12,14 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 1200,
       launchAutoHide: true,
-      backgroundColor: '#070B14',
+      backgroundColor: '#09070A',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#070B14',
+      backgroundColor: '#09070A',
     },
   },
 };

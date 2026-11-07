@@ -13,105 +13,93 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
   className = '',
   showTagline = true,
 }) => {
-  const iconDimensions = {
-    sm: { box: 26, radius: 7 },
-    md: { box: 34, radius: 9 },
-    lg: { box: 44, radius: 12 },
-    xl: { box: 60, radius: 16 },
+  const iconPixelSize = {
+    sm: 26,
+    md: 34,
+    lg: 48,
+    xl: 68,
   }[size];
 
-  // Stylized Prismatic Delta Aperture Emblem matching reference screenshot
-  const LogoIcon = (
-    <svg
-      viewBox="0 0 100 100"
-      width={iconDimensions.box}
-      height={iconDimensions.box}
-      fill="none"
-      className="shrink-0 transition-transform duration-300 hover:scale-105"
-      role="img"
-      aria-label="Chroma Studio Logo"
+  // The Official Colorful 'C' Symbol Emblem with Viewfinder Brackets & Star Sparkle
+  const LogoSymbol = (
+    <div
+      className="relative shrink-0 flex items-center justify-center select-none"
+      style={{ width: iconPixelSize, height: iconPixelSize }}
     >
-      <defs>
-        <linearGradient id="prism-grad-main" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6366F1" />
-          <stop offset="35%" stopColor="#8B5CF6" />
-          <stop offset="70%" stopColor="#EC4899" />
-          <stop offset="100%" stopColor="#F59E0B" />
-        </linearGradient>
-        <linearGradient id="prism-grad-top" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#8B5CF6" />
-          <stop offset="100%" stopColor="#38BDF8" />
-        </linearGradient>
-        <linearGradient id="prism-grad-inner" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#EC4899" />
-          <stop offset="100%" stopColor="#F59E0B" />
-        </linearGradient>
-      </defs>
-
-      {/* Prismatic Rounded Aperture Polygon */}
-      <path
-        d="M 50 12 C 54 12 57 14 59 18 L 86 66 C 88 70 88 74 86 78 C 84 82 80 84 76 84 L 24 84 C 20 84 16 82 14 78 C 12 74 12 70 14 66 L 41 18 C 43 14 46 12 50 12 Z"
-        fill="url(#prism-grad-main)"
+      <img
+        src="/brand/chroma-logo-symbol-transparent.png"
+        alt="Chroma Studio Emblem"
+        width={iconPixelSize}
+        height={iconPixelSize}
+        className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(124,58,237,0.35)] transition-transform duration-300 hover:scale-105"
+        onError={(e) => {
+          // If asset path fails in an unusual environment, fall back to SVG mark
+          const target = e.currentTarget;
+          target.onerror = null;
+          target.src = '/brand/favicon.svg';
+        }}
       />
-      {/* Dynamic Inner Aperture Iris Blades */}
-      <path
-        d="M 50 24 L 74 72 L 40 72 Z"
-        fill="#070B14"
-        opacity="0.9"
-      />
-      <path
-        d="M 50 30 L 68 68 L 44 68 Z"
-        fill="url(#prism-grad-inner)"
-        opacity="0.95"
-      />
-      <circle cx="51" cy="54" r="5.5" fill="#FFFFFF" opacity="0.95" />
-    </svg>
+    </div>
   );
 
+  // 1. Icon-Only Variant
   if (variant === 'icon') {
-    return <div className={`inline-flex items-center justify-center ${className}`}>{LogoIcon}</div>;
+    return (
+      <div className={`inline-flex items-center justify-center ${className}`} role="img" aria-label="Chroma Studio Icon">
+        {LogoSymbol}
+      </div>
+    );
   }
 
+  // 2. Header Variant (Topbar / Navbar)
   if (variant === 'header') {
     return (
-      <div className={`flex items-center gap-2.5 cursor-pointer ${className}`}>
-        {LogoIcon}
-        <div className="flex items-center gap-1.5 leading-none">
-          <span className="font-extrabold text-[17px] tracking-tight text-white font-sans">
-            Chroma Studio
-          </span>
+      <div className={`flex items-center gap-2.5 cursor-pointer select-none group ${className}`}>
+        {LogoSymbol}
+        <div className="flex flex-col justify-center leading-none">
+          <div className="flex items-baseline tracking-tight font-black text-white text-[17px] sm:text-[18px]">
+            <span>CHROM</span>
+            <span className="bg-gradient-to-tr from-[#2563FF] via-[#7C3AED] to-[#D946EF] bg-clip-text text-transparent">
+              A
+            </span>
+            <span className="text-[10px] font-bold tracking-[0.25em] text-[#94A3B8] ml-2 uppercase opacity-90 hidden xs:inline">
+              STUDIO
+            </span>
+          </div>
         </div>
       </div>
     );
   }
 
+  // 3. Auth Modal / Hero Variant
   if (variant === 'auth') {
     return (
-      <div className={`flex flex-col items-center text-center gap-3 ${className}`}>
-        <div className="p-1 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-xl shadow-purple-950/40">
-          <svg
-            viewBox="0 0 100 100"
-            width={64}
-            height={64}
-            fill="none"
-            className="rounded-[14px]"
-            role="img"
-            aria-label="Chroma Studio Emblem"
-          >
-            <rect width="100" height="100" rx="14" fill="#070B14" />
-            <path
-              d="M 50 12 C 54 12 57 14 59 18 L 86 66 C 88 70 88 74 86 78 C 84 82 80 84 76 84 L 24 84 C 20 84 16 82 14 78 C 12 74 12 70 14 66 L 41 18 C 43 14 46 12 50 12 Z"
-              fill="url(#prism-grad-main)"
-            />
-            <path d="M 50 24 L 74 72 L 40 72 Z" fill="#070B14" opacity="0.9" />
-            <path d="M 50 30 L 68 68 L 44 68 Z" fill="url(#prism-grad-inner)" opacity="0.95" />
-            <circle cx="51" cy="54" r="5.5" fill="#FFFFFF" opacity="0.95" />
-          </svg>
+      <div className={`flex flex-col items-center text-center gap-3.5 select-none ${className}`}>
+        <div className="relative p-2.5 rounded-3xl bg-[#09070A] border border-white/10 shadow-2xl shadow-purple-950/40">
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-[#00E5FF]/20 via-[#7C3AED]/25 to-[#FF9A3C]/20 blur-md pointer-events-none" />
+          <img
+            src="/brand/chroma-logo-symbol-transparent.png"
+            alt="Chroma Studio Logo"
+            className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_16px_rgba(0,229,255,0.4)]"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.onerror = null;
+              target.src = '/brand/favicon.svg';
+            }}
+          />
         </div>
         <div className="flex flex-col items-center">
-          <h2 className="font-black text-2xl tracking-tight text-white">Chroma Studio</h2>
+          <h2 className="font-black text-2xl sm:text-3xl tracking-tight text-white flex items-center">
+            <span>CHROM</span>
+            <span className="bg-gradient-to-tr from-[#2563FF] via-[#7C3AED] to-[#D946EF] bg-clip-text text-transparent">
+              A
+            </span>
+            <span className="text-[13px] font-bold tracking-[0.3em] text-[#94A3B8] ml-2.5 uppercase">
+              STUDIO
+            </span>
+          </h2>
           {showTagline && (
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-[#94A3B8] uppercase mt-1">
+            <p className="text-[11px] font-semibold tracking-[0.22em] text-[#94A3B8] uppercase mt-1">
               Create • Edit • Design • Inspire
             </p>
           )}
@@ -120,12 +108,20 @@ export const ChromaLogo: React.FC<ChromaLogoProps> = ({
     );
   }
 
-  // Wordmark horizontal default
+  // 4. Default Horizontal Wordmark
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {LogoIcon}
-      <div className="flex flex-col">
-        <span className="font-black text-xl tracking-tight text-white">Chroma Studio</span>
+    <div className={`flex items-center gap-3 select-none ${className}`}>
+      {LogoSymbol}
+      <div className="flex flex-col justify-center">
+        <div className="flex items-baseline tracking-tight font-black text-white text-[19px] sm:text-[21px]">
+          <span>CHROM</span>
+          <span className="bg-gradient-to-tr from-[#2563FF] via-[#7C3AED] to-[#D946EF] bg-clip-text text-transparent">
+            A
+          </span>
+          <span className="text-[11px] font-bold tracking-[0.28em] text-[#94A3B8] ml-2.5 uppercase">
+            STUDIO
+          </span>
+        </div>
         {showTagline && (
           <span className="text-[9px] font-bold tracking-[0.2em] text-[#94A3B8] uppercase mt-0.5">
             Create • Edit • Design • Inspire

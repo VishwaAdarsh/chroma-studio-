@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth, SUPPORTED_COUNTRIES, normalizePhoneNumber, isValidE164 } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { StorageService } from '../../services/storage';
+import { CloudProjectService, StorageQuotaInfo } from '../../services/cloudProjectService';
+import { ExportService } from '../../services/exportService';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -51,7 +53,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [storageMB, setStorageMB] = useState<number>(2450); // 2.45 GB default matching screenshot
+  const [storageMB, setStorageMB] = useState<number>(0);
+  const [quotaInfo, setQuotaInfo] = useState<StorageQuotaInfo | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -69,9 +72,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
 
     if (isOpen) {
-      StorageService.getEstimatedStorageMB().then((mb) => {
-        if (mb > 1) setStorageMB(mb);
-      });
+      if (user?.id) {
+        CloudProjectService.getCloudStorageQuota(user.id).then((q) => {
+          setQuotaInfo(q);
+          setStorageMB(q.usedMB);
+        });
+      } else {
+        StorageService.getEstimatedStorageMB().then((mb) => {
+          if (mb > 0) setStorageMB(mb);
+        });
+      }
       setStatusMsg(null);
     }
   }, [profile, user, isOpen]);
@@ -629,29 +639,102 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             )}
 
             {/* TAB 3: STORAGE */}
-            {activeTab === 'storage' && (
-              <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-3">
-                <h4 className="font-bold text-[15px] text-white">Storage Breakdown</h4>
-                <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full rounded-full bg-gradient-to-r from-[#22D3EE] via-[#8B5CF6] to-[#EC4899] w-[24%]" />
+            {activeTab === 'storage' && (() => {
+              const totalLimitMB = isPro ? 10240 : 100;
+              const usedMB = quotaInfo ? quotaInfo.usedMB : storageMB;
+              const percent = Math.min(100, Math.max(0, Math.round((usedMB / totalLimitMB) * 100)));
+              const formattedUsed = usedMB >= 1024 ? `${(usedMB / 1024).toFixed(2)} GB` : `${usedMB.toFixed(1)} MB`;
+              const formattedTotal = isPro ? '10 GB' : '100 MB';
+              const remainingMB = Math.max(0, totalLimitMB - usedMB);
+              const formattedRemaining = remainingMB >= 1024 ? `${(remainingMB / 1024).toFixed(2)} GB` : `${remainingMB.toFixed(1)} MB`;
+
+              return (
+                <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-[15px] text-white">Cloud Storage Breakdown</h4>
+                      <p className="text-[11px] text-[#94A3B8]">
+                        {isPro ? 'Pro Workspace: Unlimited Projects & 10 GB' : 'Free Plan: Up to 3 Cloud Projects & 100 MB'}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isPro ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-[#CBD5E1]'}`}>
+                      {isPro ? 'PRO 10GB' : 'FREE 100MB'}
+                    </span>
+                  </div>
+
+                  <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#22D3EE] via-[#8B5CF6] to-[#EC4899] transition-all duration-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[12px] text-[#94A3B8]">
+                    <span>{formattedUsed} used of {formattedTotal}</span>
+                    <span>{formattedRemaining} remaining ({percent}%)</span>
+                  </div>
+
+                  {quotaInfo && (
+                    <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-white/5 border border-white/10 text-[11px]">
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px] uppercase font-mono">Cloud Projects</span>
+                        <span className="font-bold text-white text-[13px]">
+                          {quotaInfo.projectCount} {isPro ? 'projects' : `of ${quotaInfo.maxProjects} max`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#94A3B8] block text-[10px] uppercase font-mono">Quota Status</span>
+                        <span className={`font-bold text-[13px] ${quotaInfo.isExceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {quotaInfo.isExceeded ? 'Quota Exceeded' : 'Healthy'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const projects = await StorageService.getProjects(user ? user.id : null);
+                          const backupData = {
+                            exportedAt: new Date().toISOString(),
+                            userId: user?.id,
+                            projectCount: projects.length,
+                            projects,
+                          };
+                          const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                          const fileName = `chroma_studio_backup_${Date.now()}.json`;
+                          await ExportService.saveExportedFile(blob, fileName, 'application/json', {
+                            dialogTitle: 'Save Chroma Studio Backup',
+                            shareText: 'Chroma Studio JSON Backup',
+                          });
+                          setStatusMsg({ type: 'success', text: 'Backup data downloaded successfully!' });
+                        } catch (err: any) {
+                          setStatusMsg({ type: 'error', text: err?.message || 'Failed to download backup data.' });
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-bold border border-white/10 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">file_download</span>
+                      <span>Download My Data (JSON Backup)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Clear local draft projects and cache?')) {
+                          onClearLocalData();
+                          setStatusMsg({ type: 'success', text: 'Local draft cache cleared.' });
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[11px] font-bold border border-rose-500/20 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">delete_sweep</span>
+                      <span>Clear Local Draft Cache</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-[12px] text-[#94A3B8]">
-                  <span>2.4 GB used</span>
-                  <span>7.6 GB remaining</span>
-                </div>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Clear local draft projects and cache?')) {
-                      onClearLocalData();
-                      setStatusMsg({ type: 'success', text: 'Local draft cache cleared.' });
-                    }
-                  }}
-                  className="self-start mt-2 px-3 py-1.5 rounded-lg bg-white/10 text-white text-[11px] font-bold"
-                >
-                  Clear Local Draft Cache
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* TAB 4: PREFERENCES */}
             {activeTab === 'preferences' && (

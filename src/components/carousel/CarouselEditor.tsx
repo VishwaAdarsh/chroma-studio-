@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { canvasToBlob, renderCarouselSlide } from '../../engine/designRenderer';
 import { StorageService } from '../../services/storage';
+import { ExportService } from '../../services/exportService';
 import {
   CarouselFormat,
   CarouselProject,
@@ -329,15 +330,17 @@ export const CarouselEditor: React.FC<CarouselEditorProps> = ({
       const exportCanvas = document.createElement('canvas');
       await renderCarouselSlide(activeSlide, project.width, project.height, exportCanvas, 1);
       const blob = await canvasToBlob(exportCanvas, 'png', 0.95);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.download = `${project.name}_slide_${String(activeSlideIndex + 1).padStart(2, '0')}.png`;
-      a.href = url;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
+      const fileName = `${project.name}_slide_${String(activeSlideIndex + 1).padStart(2, '0')}.png`;
+      const result = await ExportService.saveExportedFile(blob, fileName, 'image/png', {
+        dialogTitle: 'Save or Share Carousel Slide',
+        shareText: `Slide ${activeSlideIndex + 1} of ${project.name}`,
+      });
+      if (!result.success) {
+        alert(result.error || 'Failed to export slide.');
+      }
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to export slide.');
+      alert(err?.message || 'Failed to export slide.');
     } finally {
       setIsExporting(false);
     }
@@ -353,17 +356,17 @@ export const CarouselEditor: React.FC<CarouselEditorProps> = ({
         const exportCanvas = document.createElement('canvas');
         await renderCarouselSlide(slide, project.width, project.height, exportCanvas, 1);
         const blob = await canvasToBlob(exportCanvas, 'png', 0.95);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.download = `${project.name.replace(/\s+/g, '_')}_slide_${String(i + 1).padStart(2, '0')}.png`;
-        a.href = url;
-        a.click();
-        await new Promise((res) => setTimeout(res, 400));
-        URL.revokeObjectURL(url);
+        const fileName = `${project.name.replace(/\s+/g, '_')}_slide_${String(i + 1).padStart(2, '0')}.png`;
+        // For batch export on native, save files without repeated share prompts except possibly on the last slide
+        await ExportService.saveExportedFile(blob, fileName, 'image/png', {
+          dialogTitle: `Save Slide ${i + 1}`,
+          skipSharePrompt: i < project.slides.length - 1,
+        });
+        await new Promise((res) => setTimeout(res, 200));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to export all slides.');
+      alert(err?.message || 'Failed to export all slides.');
     } finally {
       setIsExporting(false);
       setExportProgress('');

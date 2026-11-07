@@ -1,0 +1,24 @@
+{
+  "short_name": "Chroma Studio",
+  "name": "Chroma Studio — Photo Editor & Design Suite",
+  "description": "All-in-one creative photo editing, templates, collage, and carousel creator.",
+  "icons": [
+    {
+      "src": "/brand/pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/pwa-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09070A",
+  "theme_color": "#09070A",
+  "display": "standalone",
+  "orientation": "portrait"
+}

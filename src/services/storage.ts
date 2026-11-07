@@ -63,6 +63,42 @@ export class StorageService {
   private static migrationDone = false;
   private static cachedProjects: Project[] = [];
   private static activeObjectUrls = new Map<string, string>();
+  private static currentUserId: string | null = null;
+
+  /**
+   * Sets the active authenticated user ID to isolate local projects and storage
+   */
+  public static setCurrentUser(userId: string | null): void {
+    if (this.currentUserId !== userId) {
+      this.currentUserId = userId;
+      this.cachedProjects = [];
+      this.activeObjectUrls.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+      });
+      this.activeObjectUrls.clear();
+    }
+  }
+
+  public static getCurrentUser(): string | null {
+    return this.currentUserId;
+  }
+
+  /**
+   * Cleanly purges in-memory cached state on user logout to prevent cross-account leak
+   */
+  public static async onUserSignOut(): Promise<void> {
+    this.currentUserId = null;
+    this.cachedProjects = [];
+    this.activeObjectUrls.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    });
+    this.activeObjectUrls.clear();
+    this.clearAutosaveSession();
+  }
 
   /**
    * Opens or returns the singleton IndexedDB connection
@@ -191,9 +227,11 @@ export class StorageService {
   }
 
   /**
-   * Retrieves all saved projects from IndexedDB sorted by updatedAt desc
+   * Retrieves all saved projects from IndexedDB sorted by updatedAt desc.
+   * If filterUserId is specified or current user is active, filters projects to enforce user isolation.
    */
-  public static async getProjects(): Promise<Project[]> {
+  public static async getProjects(filterUserId?: string | null): Promise<Project[]> {
+    const targetUserId = filterUserId !== undefined ? filterUserId : this.currentUserId;
     try {
       const db = await this.openDB();
       return new Promise<Project[]>((resolve, reject) => {
@@ -203,10 +241,19 @@ export class StorageService {
         const request = projectStore.getAll();
 
         request.onsuccess = () => {
-          const rawProjects: Project[] = (request.result || []).map((p: any) => ({
+          let rawProjects: Project[] = (request.result || []).map((p: any) => ({
             ...p,
             type: p.type || 'photo',
           }));
+
+          // Strict user isolation: partition projects by ownership
+          if (targetUserId) {
+            rawProjects = rawProjects.filter((p) => p.userId === targetUserId);
+          } else if (targetUserId === null && filterUserId !== undefined) {
+            // Guest mode: only return projects without a remote user_id
+            rawProjects = rawProjects.filter((p) => !p.userId);
+          }
+
           rawProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
           // Resolve image blobs for projects if needed
@@ -268,9 +315,13 @@ export class StorageService {
   }
 
   /**
-   * Synchronous accessor for in-memory cached projects
+   * Synchronous accessor for in-memory cached projects with optional user isolation
    */
-  public static getProjectsSync(): Project[] {
+  public static getProjectsSync(filterUserId?: string | null): Project[] {
+    const targetUserId = filterUserId !== undefined ? filterUserId : this.currentUserId;
+    if (targetUserId) {
+      return this.cachedProjects.filter((p) => p.userId === targetUserId);
+    }
     return this.cachedProjects;
   }
 

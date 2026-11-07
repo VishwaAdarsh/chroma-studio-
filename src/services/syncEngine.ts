@@ -81,6 +81,10 @@ export class SyncEngine {
     };
   }
 
+  public getCurrentUserId(): string | null {
+    return this.currentUser?.id || null;
+  }
+
   /**
    * Updates current authenticated user.
    * Cancels queues on sign out, or triggers sync on sign in.
@@ -334,7 +338,7 @@ export class SyncEngine {
 
       if (pullRemote) {
         const remoteProjects = await CloudProjectService.fetchProjects(userId);
-        const localProjects = await StorageService.getProjects();
+        const localProjects = await StorageService.getProjects(userId);
         const localMap = new Map(localProjects.map((p) => [p.id, p]));
 
         for (const remote of remoteProjects) {
@@ -342,16 +346,26 @@ export class SyncEngine {
           const remoteUpdated = new Date(remote.updated_at).getTime();
 
           if (!local) {
-            // New remote project: download and save locally
+            // New remote project: download thumbnail URL first for instant card rendering without pulling heavy 4K images
             let localImageSrc = '';
-            // If it's a photo with an asset, generate signed URL or download blob
+            let thumbnailUrl = '';
+            if (remote.thumbnail_path) {
+              const thumbSigned = await CloudProjectService.getSignedUrl(remote.thumbnail_path);
+              if (thumbSigned) thumbnailUrl = thumbSigned;
+            }
+
             const docAssetPath = remote.document?.assetPath;
-            if (docAssetPath) {
+            if (docAssetPath && !thumbnailUrl) {
               const signedUrl = await CloudProjectService.getSignedUrl(docAssetPath);
               if (signedUrl) localImageSrc = signedUrl;
+            } else if (thumbnailUrl) {
+              localImageSrc = thumbnailUrl;
             }
 
             const deserialized = CloudProjectService.deserializeProject(remote, localImageSrc);
+            if (thumbnailUrl && !deserialized.thumbnail) {
+              deserialized.thumbnail = thumbnailUrl;
+            }
             await StorageService.saveProject(deserialized as any);
           } else {
             // Both exist: check if remote has higher version
@@ -372,7 +386,10 @@ export class SyncEngine {
               } else {
                 // Clean remote update: adopt remote document
                 let localImageSrc = local.imageSrc || '';
-                if (!localImageSrc && remote.document?.assetPath) {
+                if (!localImageSrc && remote.thumbnail_path) {
+                  const thumbSigned = await CloudProjectService.getSignedUrl(remote.thumbnail_path);
+                  if (thumbSigned) localImageSrc = thumbSigned;
+                } else if (!localImageSrc && remote.document?.assetPath) {
                   const signedUrl = await CloudProjectService.getSignedUrl(remote.document.assetPath);
                   if (signedUrl) localImageSrc = signedUrl;
                 }
@@ -384,8 +401,8 @@ export class SyncEngine {
         }
       }
 
-      // Enqueue all local projects that need uploading
-      const freshLocal = await StorageService.getProjects();
+      // Enqueue all local projects for this user that need uploading
+      const freshLocal = await StorageService.getProjects(userId);
       freshLocal.forEach((proj) => {
         if (
           proj.syncStatus === 'pending_upload' ||

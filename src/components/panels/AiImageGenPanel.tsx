@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import type { GeneratedImage, ImageGenAspectRatio, ImageGenStyle } from '../../services/imageGen';
 import { imageGenService } from '../../services/imageGen';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { ExportService } from '../../services/exportService';
 
 interface AiImageGenPanelProps {
   onOpenInEditor?: (imageUrl: string, title?: string) => void;
@@ -125,14 +126,19 @@ export const AiImageGenPanel: React.FC<AiImageGenPanelProps> = ({
     setProgressStatus('Generation cancelled');
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!generatedResult) return;
-    const a = document.createElement('a');
-    a.href = generatedResult.imageUrl;
-    a.download = `chroma_ai_${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      const res = await fetch(generatedResult.imageUrl);
+      const blob = await res.blob();
+      const fileName = `chroma_ai_${Date.now()}.png`;
+      await ExportService.saveExportedFile(blob, fileName, 'image/png', {
+        dialogTitle: 'Save or Share AI Generated Image',
+        shareText: 'Generated with Chroma Studio AI',
+      });
+    } catch (e) {
+      console.error('Download error', e);
+    }
   };
 
   return (

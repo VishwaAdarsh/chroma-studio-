@@ -39,7 +39,154 @@ interface SignedUrlCacheEntry {
 }
 const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
+export interface StorageQuotaInfo {
+  usedBytes: number;
+  usedMB: number;
+  projectCount: number;
+  maxBytes: number;
+  maxMB: number;
+  maxProjects: number;
+  isPro: boolean;
+  percentage: number;
+  isExceeded: boolean;
+}
+
+export const FREE_PLAN_LIMITS = {
+  maxProjects: 3,
+  maxBytes: 100 * 1024 * 1024, // 100 MB
+  maxMB: 100,
+};
+
+export const PRO_PLAN_LIMITS = {
+  maxProjects: Infinity,
+  maxBytes: 10 * 1024 * 1024 * 1024, // 10 GB
+  maxMB: 10240,
+};
+
 export class CloudProjectService {
+  private static quotaCache = new Map<string, { quota: StorageQuotaInfo; timestamp: number }>();
+  private static inFlightFetchProjects = new Map<string, Promise<CloudProjectRecord[]>>();
+
+  /**
+   * Invalidates cached storage quota for a user
+   */
+  public static invalidateQuotaCache(userId: string): void {
+    this.quotaCache.delete(userId);
+  }
+
+  /**
+   * Calculates accurate cloud storage usage and quota for the authenticated user
+   */
+  public static async getCloudStorageQuota(userId: string): Promise<StorageQuotaInfo> {
+    const defaultQuota: StorageQuotaInfo = {
+      usedBytes: 0,
+      usedMB: 0,
+      projectCount: 0,
+      maxBytes: FREE_PLAN_LIMITS.maxBytes,
+      maxMB: FREE_PLAN_LIMITS.maxMB,
+      maxProjects: FREE_PLAN_LIMITS.maxProjects,
+      isPro: false,
+      percentage: 0,
+      isExceeded: false,
+    };
+
+    if (!userId || !supabase || !isSupabaseConfigured) {
+      return defaultQuota;
+    }
+
+    const cached = this.quotaCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < 30000) {
+      return cached.quota;
+    }
+
+    try {
+      // 1. Evaluate Pro status
+      let isPro = false;
+      try {
+        const { SubscriptionService } = await import('./subscription/subscriptionService');
+        const cachedSub = SubscriptionService.getCachedSubscription();
+        if (cachedSub) {
+          isPro = cachedSub.isPro;
+        } else {
+          const sub = await SubscriptionService.getSubscriptionStatus();
+          isPro = sub.isPro;
+        }
+      } catch {
+        // default to free
+      }
+
+      const maxBytes = isPro ? PRO_PLAN_LIMITS.maxBytes : FREE_PLAN_LIMITS.maxBytes;
+      const maxMB = isPro ? PRO_PLAN_LIMITS.maxMB : FREE_PLAN_LIMITS.maxMB;
+      const maxProjects = isPro ? PRO_PLAN_LIMITS.maxProjects : FREE_PLAN_LIMITS.maxProjects;
+
+      // 2. Query user's active projects count & document sizes
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('id, document')
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      let projectCount = 0;
+      let totalBytes = 0;
+
+      if (!error && projects) {
+        projectCount = projects.length;
+        projects.forEach((p) => {
+          const doc = p.document as any;
+          if (doc?.fileSize && typeof doc.fileSize === 'number') {
+            totalBytes += doc.fileSize;
+          } else {
+            totalBytes += 45 * 1024; // Nominal 45 KB document weight
+          }
+        });
+      }
+
+      // 3. Query storage objects in user folder to capture uploaded binary assets
+      try {
+        const { data: files } = await supabase.storage.from('projects').list(userId, { limit: 100 });
+        if (files && files.length > 0) {
+          let storageFilesBytes = 0;
+          for (const item of files) {
+            if (item.metadata?.size) {
+              storageFilesBytes += item.metadata.size;
+            } else if (item.id) {
+              // Check project subfolder assets
+              const { data: subFiles } = await supabase.storage.from('projects').list(`${userId}/${item.name}`);
+              if (subFiles) {
+                subFiles.forEach((sf) => {
+                  if (sf.metadata?.size) storageFilesBytes += sf.metadata.size;
+                });
+              }
+            }
+          }
+          if (storageFilesBytes > 0) {
+            totalBytes = Math.max(totalBytes, storageFilesBytes);
+          }
+        }
+      } catch {}
+
+      const usedMB = +(totalBytes / (1024 * 1024)).toFixed(2);
+      const percentage = Math.min(100, Math.round((totalBytes / maxBytes) * 100));
+
+      const quota: StorageQuotaInfo = {
+        usedBytes: totalBytes,
+        usedMB,
+        projectCount,
+        maxBytes,
+        maxMB,
+        maxProjects,
+        isPro,
+        percentage,
+        isExceeded: totalBytes >= maxBytes || projectCount >= maxProjects,
+      };
+
+      this.quotaCache.set(userId, { quota, timestamp: Date.now() });
+      return quota;
+    } catch (err) {
+      console.warn('[CloudProjectService] Error computing quota:', err);
+      return defaultQuota;
+    }
+  }
   /**
    * Generates a signed download URL for private project assets or thumbnails.
    * Caches URLs for 50 minutes (signed for 60 minutes) to avoid repeated queries.
@@ -90,6 +237,13 @@ export class CloudProjectService {
     const storagePath = `${userId}/${validId}/thumbnail.webp`;
 
     try {
+      // Enforce storage quota on Free tier
+      const quota = await this.getCloudStorageQuota(userId);
+      if (!quota.isPro && quota.usedBytes + thumbnailBlob.size > quota.maxBytes) {
+        console.warn(`[CloudProjectService] Storage quota exceeded for user ${userId}. Thumbnail: ${thumbnailBlob.size}B`);
+        return null;
+      }
+
       const { error } = await supabase.storage.from('projects').upload(storagePath, thumbnailBlob, {
         contentType: thumbnailBlob.type || 'image/webp',
         upsert: true,
@@ -100,6 +254,7 @@ export class CloudProjectService {
         return null;
       }
 
+      this.invalidateQuotaCache(userId);
       return storagePath;
     } catch (err) {
       console.error('[CloudProjectService] Exception uploading thumbnail:', err);
@@ -124,6 +279,13 @@ export class CloudProjectService {
     const storagePath = `${userId}/${validId}/assets/${assetId}`;
 
     try {
+      // Enforce storage quota on Free tier
+      const quota = await this.getCloudStorageQuota(userId);
+      if (!quota.isPro && quota.usedBytes + assetBlob.size > quota.maxBytes) {
+        console.warn(`[CloudProjectService] Storage quota exceeded for user ${userId}. Asset size: ${assetBlob.size}B`);
+        return null;
+      }
+
       const { error } = await supabase.storage.from('projects').upload(storagePath, assetBlob, {
         contentType: mimeType,
         upsert: true,
@@ -134,6 +296,7 @@ export class CloudProjectService {
         return null;
       }
 
+      this.invalidateQuotaCache(userId);
       return storagePath;
     } catch (err) {
       console.error('[CloudProjectService] Exception uploading asset:', err);
@@ -401,28 +564,52 @@ export class CloudProjectService {
 
   /**
    * Fetches all active (non-soft-deleted) projects for the authenticated user
+   * Supports optional pagination (limit, offset) and deduplicates concurrent in-flight requests.
    */
-  public static async fetchProjects(userId: string): Promise<CloudProjectRecord[]> {
-    if (!supabase || !isSupabaseConfigured) return [];
+  public static async fetchProjects(
+    userId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<CloudProjectRecord[]> {
+    if (!supabase || !isSupabaseConfigured || !userId) return [];
 
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        console.error('[CloudProjectService] Error fetching cloud projects:', error);
-        return [];
-      }
-
-      return (data || []) as CloudProjectRecord[];
-    } catch (err) {
-      console.error('[CloudProjectService] Exception fetching cloud projects:', err);
-      return [];
+    const cacheKey = `${userId}_${options?.limit || 'all'}_${options?.offset || 0}`;
+    if (this.inFlightFetchProjects.has(cacheKey)) {
+      return this.inFlightFetchProjects.get(cacheKey)!;
     }
+
+    const fetchPromise = (async () => {
+      try {
+        let query = supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false });
+
+        if (options?.limit) {
+          const from = options.offset || 0;
+          const to = from + options.limit - 1;
+          query = query.range(from, to);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[CloudProjectService] Error fetching cloud projects:', error);
+          return [];
+        }
+
+        return (data || []) as CloudProjectRecord[];
+      } catch (err) {
+        console.error('[CloudProjectService] Exception fetching cloud projects:', err);
+        return [];
+      } finally {
+        this.inFlightFetchProjects.delete(cacheKey);
+      }
+    })();
+
+    this.inFlightFetchProjects.set(cacheKey, fetchPromise);
+    return fetchPromise;
   }
 
   /**
@@ -452,7 +639,7 @@ export class CloudProjectService {
 
   /**
    * Upserts a project record to Supabase Postgres.
-   * Enforces optimistic locking / conflict detection via version matching.
+   * Enforces Free tier project count limits (max 3 projects) and optimistic locking / version matching.
    */
   public static async upsertProject(
     record: Omit<CloudProjectRecord, 'created_at' | 'updated_at'>,
@@ -463,19 +650,29 @@ export class CloudProjectService {
     }
 
     try {
-      // Conflict check: if not forcing overwrite, check existing remote record
-      if (!options.force) {
-        const existing = await this.fetchProject(record.id, record.user_id);
-        if (existing) {
-          // If remote version is greater than local version, conflict!
-          if (existing.version > record.version) {
-            return {
-              data: null,
-              error: new Error(`Conflict: remote version (${existing.version}) is newer than local (${record.version})`),
-              conflict: true,
-              remoteRecord: existing,
-            };
-          }
+      // 1. Quota check for new cloud projects on Free tier
+      const existing = await this.fetchProject(record.id, record.user_id);
+      if (!existing && !options.force) {
+        const quota = await this.getCloudStorageQuota(record.user_id);
+        if (!quota.isPro && quota.projectCount >= quota.maxProjects) {
+          return {
+            data: null,
+            error: new Error(
+              `Free plan limit reached: you can store up to ${quota.maxProjects} cloud projects. Upgrade to Chroma Studio Pro for unlimited cloud projects.`
+            ),
+          };
+        }
+      }
+
+      // 2. Conflict check: if not forcing overwrite, check existing remote record version
+      if (existing && !options.force) {
+        if (existing.version > record.version) {
+          return {
+            data: null,
+            error: new Error(`Conflict: remote version (${existing.version}) is newer than local (${record.version})`),
+            conflict: true,
+            remoteRecord: existing,
+          };
         }
       }
 
@@ -501,6 +698,7 @@ export class CloudProjectService {
         return { data: null, error: new Error(error.message) };
       }
 
+      this.invalidateQuotaCache(record.user_id);
       return { data: data as CloudProjectRecord, error: null };
     } catch (err: any) {
       return { data: null, error: err instanceof Error ? err : new Error(String(err)) };
@@ -520,6 +718,9 @@ export class CloudProjectService {
         .eq('id', ensureUUID(projectId))
         .eq('user_id', userId);
 
+      if (!error) {
+        this.invalidateQuotaCache(userId);
+      }
       return !error;
     } catch (err) {
       console.error('[CloudProjectService] Exception soft-deleting project:', err);
@@ -543,6 +744,9 @@ export class CloudProjectService {
         .eq('id', validId)
         .eq('user_id', userId);
 
+      if (!error) {
+        this.invalidateQuotaCache(userId);
+      }
       return !error;
     } catch (err) {
       console.error('[CloudProjectService] Exception hard-deleting project:', err);

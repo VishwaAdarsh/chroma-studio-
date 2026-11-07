@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ChromaLogo } from './brand/ChromaLogo';
 
 interface HeaderProps {
   projectName: string;
@@ -62,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="fixed top-0 inset-x-0 z-40 bg-[#070B14]/95 backdrop-blur-2xl border-b border-white/10 shadow-lg pt-[env(safe-area-inset-top)]">
       <div className="h-14 px-2.5 sm:px-3 flex items-center justify-between gap-1.5 sm:gap-2 max-w-5xl mx-auto">
         {/* Left: Back button & Project Title */}
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
           <button
             onClick={onBackToHome}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-[#94A3B8] hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
@@ -70,6 +71,10 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[18px] sm:text-[20px]">arrow_back_ios_new</span>
           </button>
+
+          <div className="hidden sm:flex items-center">
+            <ChromaLogo variant="icon" size="sm" />
+          </div>
 
           <div className="flex flex-col min-w-0">
             {isEditingName ? (

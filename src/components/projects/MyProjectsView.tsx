@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StorageService } from '../../services/storage';
 import { syncEngine } from '../../services/syncEngine';
 import { CloudProjectService } from '../../services/cloudProjectService';
+import { ExportService } from '../../services/exportService';
 import { useAuth } from '../../contexts/AuthContext';
 import type { SyncProgressState, SyncConflict, ConflictResolution } from '../../types/sync';
 
@@ -89,6 +90,16 @@ export const MyProjectsView: React.FC<MyProjectsViewProps> = ({
     e.stopPropagation();
     await StorageService.duplicateProject(id);
     onRefresh();
+  };
+
+  const handleExportJson = async (project: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await ExportService.exportProjectAsJson(project);
+    } catch (err: any) {
+      console.error('Export project backup error:', err);
+      alert('Failed to export project backup: ' + (err?.message || 'Unknown error'));
+    }
   };
 
   const handleStartRename = (project: any, e: React.MouseEvent) => {
@@ -385,9 +396,9 @@ export const MyProjectsView: React.FC<MyProjectsViewProps> = ({
                 >
                   {/* Thumbnail Viewport */}
                   <div className="w-full aspect-[4/3] rounded-xl bg-[#070B14] overflow-hidden relative border border-white/10 flex items-center justify-center">
-                    {proj.imageSrc ? (
+                    {(proj.thumbnail || proj.imageSrc) ? (
                       <img
-                        src={proj.imageSrc}
+                        src={proj.thumbnail || proj.imageSrc}
                         alt={proj.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -463,7 +474,14 @@ export const MyProjectsView: React.FC<MyProjectsViewProps> = ({
                     {/* Bottom Metadata & Tools */}
                     <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[11px] font-mono text-[#94A3B8]">
                       <span>{new Date(proj.updatedAt || proj.createdAt).toLocaleDateString()}</span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => handleExportJson(proj, e)}
+                          className="p-1 rounded hover:bg-white/5 text-[#94A3B8] hover:text-[#22D3EE] transition-colors cursor-pointer"
+                          title="Export Project Backup (JSON)"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">file_download</span>
+                        </button>
                         <button
                           onClick={(e) => handleDuplicate(proj.id, e)}
                           className="p-1 rounded hover:bg-white/5 text-[#94A3B8] hover:text-[#8B5CF6] transition-colors cursor-pointer"

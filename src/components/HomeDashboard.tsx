@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { SampleImage } from '../data/samples';
 import type { Project } from '../types/editor';
 import type { ReadyMadeTemplate } from '../types/design';
@@ -13,6 +13,8 @@ import { AppBottomNavigation, BottomNavTab } from './navigation/AppBottomNavigat
 import { NavigationDrawer } from './navigation/NavigationDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { CloudProjectService } from '../services/cloudProjectService';
+import { StorageService } from '../services/storage';
 
 interface HomeDashboardProps {
   onStartWithSample: (sample: SampleImage) => void;
@@ -55,6 +57,23 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentBottomTab, setCurrentBottomTab] = useState<BottomNavTab>('home');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [cloudStorageUsedMB, setCloudStorageUsedMB] = useState<number>(0);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.id) {
+      CloudProjectService.getCloudStorageQuota(user.id).then((quota) => {
+        if (mounted) setCloudStorageUsedMB(quota.usedMB);
+      });
+    } else {
+      StorageService.getEstimatedStorageMB().then((mb) => {
+        if (mounted) setCloudStorageUsedMB(mb);
+      });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [user, recentProjects]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -254,7 +273,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               openUpgradeModal('Upgrade to Chroma Pro for unlimited creative AI and 4K exports');
             }
           }}
-          storageUsedMB={2450} // 2.4 GB matching screenshot
+          storageUsedMB={cloudStorageUsedMB}
           isPro={isPro}
         />
       </main>

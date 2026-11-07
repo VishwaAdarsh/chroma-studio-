@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -12,21 +12,44 @@ import { AdjustPanel } from './components/panels/AdjustPanel';
 import { CropPanel } from './components/panels/CropPanel';
 import { EffectsPanel } from './components/panels/EffectsPanel';
 import { LooksPanel } from './components/panels/LooksPanel';
-import { SettingsModal } from './components/SettingsModal';
 import { ToneCurvesEditor } from './components/ToneCurvesEditor';
 import { ToolNavigation } from './components/ToolNavigation';
-import { TemplatesStudio } from './components/templates/TemplatesStudio';
-import { TemplateEditor } from './components/templates/TemplateEditor';
-import { CollageStudio } from './components/collage/CollageStudio';
-import { CollageEditor } from './components/collage/CollageEditor';
-import { CarouselStudio } from './components/carousel/CarouselStudio';
-import { CarouselEditor } from './components/carousel/CarouselEditor';
-import { MyProjectsView } from './components/projects/MyProjectsView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import { AuthModal, AuthViewMode } from './components/auth/AuthModal';
-import { ProfileModal } from './components/profile/ProfileModal';
-import { UpgradeModal } from './components/subscription/UpgradeModal';
+import { ExportService } from './services/exportService';
+
+// Performance Optimization: Code-split heavy sub-editors and modal views
+const SettingsModal = lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const TemplatesStudio = lazy(() => import('./components/templates/TemplatesStudio').then((m) => ({ default: m.TemplatesStudio })));
+const TemplateEditor = lazy(() => import('./components/templates/TemplateEditor').then((m) => ({ default: m.TemplateEditor })));
+const CollageStudio = lazy(() => import('./components/collage/CollageStudio').then((m) => ({ default: m.CollageStudio })));
+const CollageEditor = lazy(() => import('./components/collage/CollageEditor').then((m) => ({ default: m.CollageEditor })));
+const CarouselStudio = lazy(() => import('./components/carousel/CarouselStudio').then((m) => ({ default: m.CarouselStudio })));
+const CarouselEditor = lazy(() => import('./components/carousel/CarouselEditor').then((m) => ({ default: m.CarouselEditor })));
+const MyProjectsView = lazy(() => import('./components/projects/MyProjectsView').then((m) => ({ default: m.MyProjectsView })));
+const ProfileModal = lazy(() => import('./components/profile/ProfileModal').then((m) => ({ default: m.ProfileModal })));
+const UpgradeModal = lazy(() => import('./components/subscription/UpgradeModal').then((m) => ({ default: m.UpgradeModal })));
+const AiImageGenModal = lazy(() => import('./components/modals/AiImageGenModal').then((m) => ({ default: m.AiImageGenModal })));
+
+const StudioSuspenseFallback = () => (
+  <div className="min-h-screen w-full bg-[#09070A] flex flex-col items-center justify-center gap-4 select-none">
+    <div className="relative flex items-center justify-center">
+      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#00E5FF]/20 via-[#7C3AED]/30 to-[#FF9A3C]/20 blur-xl animate-pulse" />
+      <img
+        src="/brand/chroma-logo-symbol-transparent.png"
+        alt="Chroma Studio"
+        className="w-16 h-16 object-contain relative z-10 animate-pulse"
+      />
+    </div>
+    <div className="flex flex-col items-center gap-1.5 z-10">
+      <span className="text-[12px] font-bold text-white tracking-[0.25em] uppercase">Chroma Studio</span>
+      <div className="w-20 h-0.5 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-[#00E5FF] via-[#7C3AED] to-[#FF9A3C] w-full animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
 import type {
   ReadyMadeTemplate,
   DesignProject,
@@ -74,7 +97,6 @@ import { AiAssistantPanel } from './components/panels/AiAssistantPanel';
 import { AiEnhancePanel } from './components/panels/AiEnhancePanel';
 import { InpaintPanel } from './components/panels/InpaintPanel';
 import { AiImageGenPanel } from './components/panels/AiImageGenPanel';
-import { AiImageGenModal } from './components/modals/AiImageGenModal';
 import type { AiEditPlan } from './services/ai';
 import { segmentationService } from './services/segmentation';
 import { inpaintingService } from './services/inpainting';
@@ -187,18 +209,21 @@ function ChromaStudioApp() {
   const [isComparing, setIsComparing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [favorites, setFavorites] = useState<string[]>(StorageService.getFavorites());
-  const [recentProjects, setRecentProjects] = useState<Project[]>(StorageService.getProjectsSync());
+  const [recentProjects, setRecentProjects] = useState<Project[]>(() =>
+    StorageService.getProjectsSync(user ? user.id : null)
+  );
 
-  // Load projects from IndexedDB & trigger auto-migration
+  // Load projects from IndexedDB & trigger auto-migration scoped strictly to authenticated user
   useEffect(() => {
     let mounted = true;
-    StorageService.getProjects().then((projects) => {
+    const targetUserId = user ? user.id : null;
+    StorageService.getProjects(targetUserId).then((projects) => {
       if (mounted) setRecentProjects(projects);
     });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   // Check for recoverable unsaved session
   const [recoverableSession, setRecoverableSession] = useState<AutosaveSession | null>(null);
@@ -676,7 +701,7 @@ function ChromaStudioApp() {
       userId: user?.id,
     };
     await StorageService.saveProject(project);
-    const updated = await StorageService.getProjects();
+    const updated = await StorageService.getProjects(user ? user.id : null);
     setRecentProjects(updated);
   };
 
@@ -1347,14 +1372,17 @@ function ChromaStudioApp() {
 
     if (!blob) throw new Error('Failed to create export blob');
 
-    // Trigger download via temporary Object URL
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    // Universal Native (Android Filesystem & Share) and Web Browser Export Pipeline
     const baseName = projectName.replace(/\.[^/.]+$/, '');
-    link.download = `${baseName}_graded.${settings.format}`;
-    link.href = objectUrl;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    const fileName = `${baseName}_graded.${settings.format}`;
+    const exportResult = await ExportService.saveExportedFile(blob, fileName, mimeType, {
+      dialogTitle: 'Save or Share Photo',
+      shareText: `Chroma Studio: ${baseName}`,
+    });
+
+    if (!exportResult.success) {
+      throw new Error(exportResult.error || 'Failed to export photo on this device');
+    }
 
     // Auto-save project upon export
     await saveCurrentProjectToStorage();
@@ -1362,7 +1390,7 @@ function ChromaStudioApp() {
 
   // Refresh projects helper
   const refreshProjectsList = async () => {
-    const projs = await StorageService.getProjects();
+    const projs = await StorageService.getProjects(user ? user.id : null);
     setRecentProjects(projs);
   };
 
@@ -1890,7 +1918,7 @@ function ChromaStudioApp() {
   };
 
   return (
-    <>
+    <Suspense fallback={<StudioSuspenseFallback />}>
       {renderCurrentView()}
 
       {/* Global Export Modal */}
@@ -1903,19 +1931,23 @@ function ChromaStudioApp() {
       />
 
       {/* Global AI Image Generation Modal */}
-      <AiImageGenModal
-        isOpen={isAiGenModalOpen}
-        onClose={() => setIsAiGenModalOpen(false)}
-        onOpenInEditor={handleOpenGeneratedInEditor}
-        onUseAsBackdrop={imageSrc ? handleUseGeneratedAsBackdrop : undefined}
-      />
+      {isAiGenModalOpen && (
+        <AiImageGenModal
+          isOpen={isAiGenModalOpen}
+          onClose={() => setIsAiGenModalOpen(false)}
+          onOpenInEditor={handleOpenGeneratedInEditor}
+          onUseAsBackdrop={imageSrc ? handleUseGeneratedAsBackdrop : undefined}
+        />
+      )}
 
       {/* Global Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onClearProjects={() => setRecentProjects([])}
-      />
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onClearProjects={() => setRecentProjects([])}
+        />
+      )}
 
       {/* Global Canva-Inspired Auth Modal */}
       <AuthModal
@@ -1927,23 +1959,27 @@ function ChromaStudioApp() {
       />
 
       {/* Global Profile Modal */}
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        onOpenAuth={() => {
-          setIsProfileOpen(false);
-          openAuthModal('signin', 'Sign in to manage your profile and cloud sync');
-        }}
-        onClearLocalData={() => setRecentProjects([])}
-      />
+      {isProfileOpen && (
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          onOpenAuth={() => {
+            setIsProfileOpen(false);
+            openAuthModal('signin', 'Sign in to manage your profile and cloud sync');
+          }}
+          onClearLocalData={() => setRecentProjects([])}
+        />
+      )}
 
       {/* Global Pro Upgrade Modal */}
-      <UpgradeModal
-        isOpen={upgradeModalOpen}
-        onClose={closeUpgradeModal}
-        reason={upgradeReason}
-      />
-    </>
+      {upgradeModalOpen && (
+        <UpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={closeUpgradeModal}
+          reason={upgradeReason}
+        />
+      )}
+    </Suspense>
   );
 }
 

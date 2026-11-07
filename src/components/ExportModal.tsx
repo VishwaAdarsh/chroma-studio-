@@ -23,6 +23,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [scale, setScale] = useState<number>(1);
   const [stripMetadata, setStripMetadata] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -42,11 +43,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleExportClick = async () => {
     setIsExporting(true);
+    setExportError(null);
     try {
       await onExport({ format, quality, scale, stripMetadata });
       onClose();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[ExportModal] Export failed:', err);
+      setExportError(err?.message || 'Export failed. Please check permissions or device storage.');
     } finally {
       setIsExporting(false);
     }
@@ -193,6 +196,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="w-5 h-5 rounded-full bg-white shadow-md" />
           </button>
         </div>
+
+        {/* Error notification banner if export fails */}
+        {exportError && (
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[12px] flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+            <span>{exportError}</span>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-2">
