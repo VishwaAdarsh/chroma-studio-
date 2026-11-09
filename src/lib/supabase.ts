@@ -15,8 +15,16 @@ export interface UserProfile {
   updated_at: string | null;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Production default public Supabase project configuration (safe client anon credentials)
+export const DEFAULT_SUPABASE_URL = 'https://fbtiigdfglailzjzfryp.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZidGlpZ2RmZ2xhaWx6anpmcnlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwOTg1MDQsImV4cCI6MjEwMTY3NDUwNH0.IWUaWvJivZ6B2XII_CvL19fOAToxsx2wbeMmmSkE8E8';
+
+// Prefer environment variables if provided, otherwise fallback to default public client credentials
+export const supabaseUrl =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) || DEFAULT_SUPABASE_URL;
+export const supabaseAnonKey =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || DEFAULT_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
@@ -29,7 +37,7 @@ let supabaseInstance: SupabaseClient | null = null;
 
 if (isSupabaseConfigured) {
   try {
-    supabaseInstance = createClient(supabaseUrl!, supabaseAnonKey!, {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -38,12 +46,12 @@ if (isSupabaseConfigured) {
       },
     });
   } catch (err) {
-    console.error('Failed to initialize Supabase client:', err);
+    console.error('[Chroma Studio] Failed to initialize Supabase client:', err);
     supabaseInstance = null;
   }
 } else {
   console.warn(
-    '[Chroma Studio] Supabase credentials not configured or incomplete. Authentication running in offline/guest mode.'
+    '[Chroma Studio] Supabase credentials not configured. Running in offline/guest mode.'
   );
 }
 

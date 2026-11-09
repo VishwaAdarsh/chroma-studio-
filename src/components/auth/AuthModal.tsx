@@ -56,6 +56,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isDeviceOnline, setIsDeviceOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setIsDeviceOnline(true);
+    const handleOffline = () => setIsDeviceOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (resendCountdown > 0) {
@@ -88,6 +103,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    if (!isDeviceOnline) {
+      setErrorMsg('You are currently offline. Please connect to the internet to sign in, or continue in offline guest mode.');
+      return;
+    }
+
     if (!validateEmail(email)) {
       setErrorMsg('Please enter a valid email address.');
       return;
@@ -116,6 +136,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (!isDeviceOnline) {
+      setErrorMsg('You are currently offline. Please connect to the internet to create an account, or continue in offline guest mode.');
+      return;
+    }
 
     if (!fullName.trim()) {
       setErrorMsg('Please enter your full name.');
@@ -211,6 +236,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    if (!isDeviceOnline) {
+      setErrorMsg('You are currently offline. Please connect to the internet to use phone verification, or continue in offline guest mode.');
+      return;
+    }
+
     const formatted = normalizePhoneNumber(phone, selectedCountry.dialCode);
     if (!isValidE164(formatted)) {
       setErrorMsg(`Please enter a valid phone number (e.g. ${selectedCountry.dialCode} 9876543210).`);
@@ -282,6 +312,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleGoogleAuth = async () => {
     setErrorMsg(null);
+    if (!isDeviceOnline) {
+      setErrorMsg('You are currently offline. Please connect to the internet to sign in with Google, or continue in offline guest mode.');
+      return;
+    }
     setLoading(true);
     const { error } = await signInWithGoogle();
     setLoading(false);
@@ -369,6 +403,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* RIGHT COLUMN: Interactive Form matching reference screenshot */}
         <div className="flex-1 p-4 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[88dvh]">
           <div>
+            {/* Offline Status Notice */}
+            {!isDeviceOnline && (
+              <div className="p-3 mb-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-[12px] flex items-center gap-2.5 shadow-sm">
+                <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">wifi_off</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block text-amber-100 text-[12px]">Offline Mode Active</span>
+                  <span className="text-amber-200/80 text-[11px] leading-tight block">
+                    You are currently offline. Sign-in and cloud sync require internet, but all creative tools work completely offline in guest mode.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Action Reason Banner on Mobile / Top */}
             {reason && (
               <div className="p-3 mb-3 rounded-2xl bg-[#8B5CF6]/15 border border-[#8B5CF6]/30 text-white text-[12px] flex items-center gap-2.5 shadow-sm">

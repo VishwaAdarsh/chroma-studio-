@@ -167,3 +167,42 @@ describe('ExportService: Universal Native & Web Export Pipeline', () => {
     spy.mockRestore();
   });
 });
+
+describe('Online & Offline Mode Resilience', () => {
+  it('has Supabase configured with valid default client credentials', async () => {
+    const { isSupabaseConfigured, supabase, supabaseUrl, supabaseAnonKey } = await import('../../lib/supabase');
+    expect(isSupabaseConfigured).toBe(true);
+    expect(supabase).not.toBeNull();
+    expect(supabaseUrl).toContain('supabase.co');
+    expect(supabaseAnonKey).toBeDefined();
+    expect(supabaseAnonKey.length).toBeGreaterThan(20);
+  });
+
+  it('allows full project creation, saving, and querying in offline mode', async () => {
+    const offlineProject: Project = {
+      id: 'offline-proj-1',
+      name: 'Offline Masterpiece',
+      imageSrc: 'blob:offline-img',
+      originalName: 'offline.png',
+      width: 1080,
+      height: 1080,
+      fileSize: 50000,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      adjustments: DEFAULT_ADJUSTMENTS,
+      activePresetId: null,
+      presetIntensity: 100,
+      geometry: DEFAULT_GEOMETRY,
+      curves: DEFAULT_CURVES,
+      wheels: DEFAULT_WHEELS,
+      userId: undefined, // Guest / offline mode
+    };
+
+    // Save project locally
+    await StorageService.saveProject(offlineProject);
+
+    // Retrieve projects without any network dependency
+    const allProjects = await StorageService.getProjects();
+    expect(allProjects.some((p) => p.id === 'offline-proj-1')).toBe(true);
+  });
+});
