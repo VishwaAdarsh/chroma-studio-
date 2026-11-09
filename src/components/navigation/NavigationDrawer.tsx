@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ChromaLogo } from '../brand/ChromaLogo';
+import { useStorageMonitor } from '../../hooks/useStorageMonitor';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -18,6 +19,16 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenSettings,
   onOpenUpgrade,
 }) => {
+  const { quota, loading, error, formattedUsed, formattedTotal, percentage, isExceeded, isPro, refresh } =
+    useStorageMonitor();
+
+  // Refresh live storage whenever drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      refresh();
+    }
+  }, [isOpen, refresh]);
+
   if (!isOpen) return null;
 
   const navItems = [
@@ -94,13 +105,33 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold text-white flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px] text-[#22D3EE]">cloud</span>
-                Storage
+                Storage {isPro && <span className="text-[9px] text-emerald-400 font-bold px-1 rounded bg-emerald-500/20">PRO</span>}
               </span>
-              <span className="text-[#94A3B8] font-mono">2.4 GB of 10 GB</span>
+              <span className="text-[#94A3B8] font-mono">
+                {loading && !quota ? (
+                  <span className="animate-pulse text-[10px]">Calculating...</span>
+                ) : error ? (
+                  <span className="text-amber-400 text-[10px]">Offline</span>
+                ) : (
+                  `${formattedUsed} of ${formattedTotal}`
+                )}
+              </span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#22D3EE] to-[#8B5CF6] w-[24%]" />
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isExceeded
+                    ? 'bg-rose-500'
+                    : 'bg-gradient-to-r from-[#22D3EE] to-[#8B5CF6]'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+              />
             </div>
+            {isExceeded && (
+              <span className="text-[10px] text-rose-400 font-medium">
+                Quota exceeded ({percentage}%)
+              </span>
+            )}
           </div>
 
           {/* Upgrade to Pro Card */}

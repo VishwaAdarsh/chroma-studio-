@@ -3,6 +3,7 @@ import { useAuth, SUPPORTED_COUNTRIES, normalizePhoneNumber, isValidE164 } from 
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { StorageService } from '../../services/storage';
 import { CloudProjectService, StorageQuotaInfo } from '../../services/cloudProjectService';
+import { storageMonitorService } from '../../services/storageMonitorService';
 import { ExportService } from '../../services/exportService';
 
 interface ProfileModalProps {
@@ -73,7 +74,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     if (isOpen) {
       if (user?.id) {
-        CloudProjectService.getCloudStorageQuota(user.id).then((q) => {
+        storageMonitorService.refresh(true).then((q) => {
           setQuotaInfo(q);
           setStorageMB(q.usedMB);
         });
@@ -466,10 +467,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-[#94A3B8]">Storage Usage</span>
-                        <span className="font-mono text-white">2.4 GB of 10 GB used (24%)</span>
+                        <span className="font-mono text-white">
+                          {quotaInfo
+                            ? `${quotaInfo.formattedUsed} of ${quotaInfo.formattedTotal} used (${quotaInfo.percentage}%)`
+                            : 'Loading...'}
+                        </span>
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full rounded-full bg-[#8B5CF6] w-[24%]" />
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            quotaInfo?.isExceeded ? 'bg-rose-500' : 'bg-[#8B5CF6]'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(0, quotaInfo?.percentage || 0))}%` }}
+                        />
                       </div>
                     </div>
                   </div>

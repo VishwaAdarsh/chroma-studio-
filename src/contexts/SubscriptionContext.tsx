@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { SubscriptionService } from '../services/subscription/subscriptionService';
+import { storageMonitorService } from '../services/storageMonitorService';
 import type {
   EntitlementFeature,
   SubscriptionPlan,
@@ -73,6 +74,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setPlan(res.plan);
       setStatus(res.status);
       setCurrentPeriodEnd(res.currentPeriodEnd);
+      storageMonitorService.notifyChange().catch(() => {});
     } catch (err) {
       console.warn('[SubscriptionContext] Refresh subscription note:', err);
     } finally {

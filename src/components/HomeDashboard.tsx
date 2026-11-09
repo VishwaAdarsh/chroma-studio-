@@ -13,7 +13,7 @@ import { AppBottomNavigation, BottomNavTab } from './navigation/AppBottomNavigat
 import { NavigationDrawer } from './navigation/NavigationDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { CloudProjectService } from '../services/cloudProjectService';
+import { storageMonitorService } from '../services/storageMonitorService';
 import { StorageService } from '../services/storage';
 
 interface HomeDashboardProps {
@@ -57,22 +57,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentBottomTab, setCurrentBottomTab] = useState<BottomNavTab>('home');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [cloudStorageUsedMB, setCloudStorageUsedMB] = useState<number>(0);
-
   useEffect(() => {
-    let mounted = true;
-    if (user?.id) {
-      CloudProjectService.getCloudStorageQuota(user.id).then((quota) => {
-        if (mounted) setCloudStorageUsedMB(quota.usedMB);
-      });
-    } else {
-      StorageService.getEstimatedStorageMB().then((mb) => {
-        if (mounted) setCloudStorageUsedMB(mb);
-      });
-    }
-    return () => {
-      mounted = false;
-    };
+    storageMonitorService.refresh();
   }, [user, recentProjects]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,7 +259,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               openUpgradeModal('Upgrade to Chroma Pro for unlimited creative AI and 4K exports');
             }
           }}
-          storageUsedMB={cloudStorageUsedMB}
           isPro={isPro}
         />
       </main>

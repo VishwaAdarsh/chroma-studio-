@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import { syncEngine } from '../services/syncEngine';
 import { StorageService } from '../services/storage';
 import { SubscriptionService } from '../services/subscription/subscriptionService';
+import { storageMonitorService } from '../services/storageMonitorService';
 
 export interface PhoneAuthCountry {
   name: string;
@@ -399,10 +400,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchProfile]);
 
-  // Connect user session to background SyncEngine, StorageService & Subscriptions
+  // Connect user session to background SyncEngine, StorageService, StorageMonitor & Subscriptions
   useEffect(() => {
     StorageService.setCurrentUser(user ? user.id : null);
     syncEngine.setUser(user);
+    storageMonitorService.setUser(user ? user.id : null);
     if (!user) {
       SubscriptionService.clearCache();
     }
@@ -775,6 +777,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
       await updateProfile({ avatar_url: publicUrl });
+      storageMonitorService.notifyChange().catch(() => {});
 
       return { url: publicUrl, error: null };
     } catch (err: any) {

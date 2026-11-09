@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface ScrubberProps {
   label: string;
@@ -13,7 +13,7 @@ interface ScrubberProps {
   onInteractionEnd?: () => void;
 }
 
-export const Scrubber: React.FC<ScrubberProps> = ({
+export const Scrubber: React.FC<ScrubberProps> = React.memo(({
   label,
   value,
   min,
@@ -25,20 +25,51 @@ export const Scrubber: React.FC<ScrubberProps> = ({
   onInteractionStart,
   onInteractionEnd,
 }) => {
-  const percentage = ((value - min) / (max - min)) * 100;
+  // Local immediate value state for zero-latency 60fps thumb tracking & numeric readout
+  const [localVal, setLocalVal] = useState<number>(value);
+  const isInteractingRef = useRef<boolean>(false);
+
+  // Synchronize local value when external value changes and user is not actively dragging
+  useEffect(() => {
+    if (!isInteractingRef.current) {
+      setLocalVal(value);
+    }
+  }, [value]);
+
+  const percentage = ((localVal - min) / (max - min)) * 100;
   const zeroPercent = ((0 - min) / (max - min)) * 100;
 
   const left = Math.min(percentage, zeroPercent);
   const right = Math.max(percentage, zeroPercent);
 
   const displayVal =
-    value > 0
-      ? `+${value.toFixed(step < 1 ? 2 : 0)}${unit}`
-      : `${value.toFixed(step < 1 ? 2 : 0)}${unit}`;
+    localVal > 0
+      ? `+${localVal.toFixed(step < 1 ? 2 : 0)}${unit}`
+      : `${localVal.toFixed(step < 1 ? 2 : 0)}${unit}`;
 
-  const hasChanged = Math.abs(value) > 0.001;
+  const hasChanged = Math.abs(localVal) > 0.001;
+
+  const handleStart = () => {
+    isInteractingRef.current = true;
+    onInteractionStart?.();
+  };
+
+  const handleEnd = () => {
+    isInteractingRef.current = false;
+    onInteractionEnd?.();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement> | React.FormEvent<HTMLInputElement>) => {
+    const newVal = parseFloat((e.target as HTMLInputElement).value);
+    if (!Number.isNaN(newVal)) {
+      setLocalVal(newVal);
+      onChange(newVal);
+    }
+  };
 
   const handleResetWithHistory = () => {
+    isInteractingRef.current = false;
+    setLocalVal(0);
     onInteractionStart?.();
     onReset();
     onInteractionEnd?.();
@@ -81,30 +112,31 @@ export const Scrubber: React.FC<ScrubberProps> = ({
           style={{ left: `${zeroPercent}%`, transform: 'translateX(-50%)' }}
         />
 
-        {/* Range Input */}
+        {/* Range Input with Immediate Pointer Response */}
         <input
           type="range"
           min={min}
           max={max}
           step={step}
-          value={value}
-          onPointerDown={() => onInteractionStart?.()}
-          onPointerUp={() => onInteractionEnd?.()}
-          onTouchStart={() => onInteractionStart?.()}
-          onTouchEnd={() => onInteractionEnd?.()}
+          value={localVal}
+          onPointerDown={handleStart}
+          onPointerUp={handleEnd}
+          onTouchStart={handleStart}
+          onTouchEnd={handleEnd}
           onKeyDown={(e) => {
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
-              onInteractionStart?.();
+              handleStart();
             }
           }}
           onKeyUp={(e) => {
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
-              onInteractionEnd?.();
+              handleEnd();
             }
           }}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          onChange={handleInputChange}
+          onInput={handleInputChange}
           onDoubleClick={handleResetWithHistory}
-          className="w-full h-1.5 bg-surface-container-high rounded-full appearance-none cursor-pointer focus:outline-none z-10 transition-all"
+          className="w-full h-1.5 bg-surface-container-high rounded-full appearance-none cursor-pointer focus:outline-none z-10 select-none"
           style={{
             background: `linear-gradient(to right, #ffe2de 0%, #ffe2de ${left}%, #bf0411 ${left}%, #e42b27 ${right}%, #ffe2de ${right}%, #ffe2de 100%)`,
           }}
@@ -112,4 +144,4 @@ export const Scrubber: React.FC<ScrubberProps> = ({
       </div>
     </div>
   );
-};
+});

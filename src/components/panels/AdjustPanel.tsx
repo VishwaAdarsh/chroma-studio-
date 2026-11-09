@@ -24,7 +24,7 @@ type AdjustParam =
   | 'saturation'
   | 'vibrance';
 
-export const AdjustPanel: React.FC<AdjustPanelProps> = ({
+export const AdjustPanel: React.FC<AdjustPanelProps> = React.memo(({
   adjustments,
   onChange,
   onResetParam,
@@ -100,4 +100,4 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({
       </div>
     </div>
   );
-};
+});

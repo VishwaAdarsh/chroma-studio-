@@ -161,6 +161,18 @@ function ChromaStudioApp() {
 
   // Editing State
   const [adjustments, setAdjustments] = useState<AdjustmentParameters>(DEFAULT_ADJUSTMENTS);
+  const adjustmentsRef = useRef<AdjustmentParameters>(adjustments);
+  useEffect(() => {
+    adjustmentsRef.current = adjustments;
+  }, [adjustments]);
+
+  // Frame scheduler references for 60fps continuous slider dragging
+  const pendingRenderTaskRef = useRef<{
+    adjustments?: AdjustmentParameters;
+    isInteractive: boolean;
+  } | null>(null);
+  const renderRafIdRef = useRef<number | null>(null);
+  const scheduleRenderRef = useRef<((adj?: AdjustmentParameters, isInteractive?: boolean) => void) | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetIntensity, setPresetIntensity] = useState<number>(100);
   const [geometry, setGeometry] = useState<GeometryState>(DEFAULT_GEOMETRY);
@@ -324,6 +336,8 @@ function ChromaStudioApp() {
       }
       isInteractingRef.current = false;
       preInteractionSnapshotRef.current = null;
+      // Trigger full fidelity render on release with histogram
+      scheduleRenderRef.current?.(undefined, false);
     }
   }, [captureSnapshot]);
 
@@ -389,51 +403,51 @@ function ChromaStudioApp() {
     }
   }, [historyFuture, captureSnapshot, imageSrc]);
 
-  // Render Pipeline
-  const runPipeline = useCallback(() => {
-    if (!imageElementRef.current || !canvasRef.current || isRenderingRef.current) return;
+  // Render Pipeline Execution with adaptive preview resolution
+  const executeRender = useCallback(
+    (customAdj?: AdjustmentParameters, isInteractive?: boolean) => {
+      const img = imageElementRef.current;
+      const canvas = canvasRef.current;
+      if (!img || !canvas) return;
 
-    isRenderingRef.current = true;
-    requestAnimationFrame(() => {
+      const interactive = isInteractive ?? isInteractingRef.current;
+      const effectiveAdjustments = customAdj || aiPreviewState?.adjustments || adjustmentsRef.current;
+      const effectivePresetId =
+        aiPreviewState?.presetId !== undefined ? aiPreviewState.presetId : activePresetId;
+      const effectivePresetIntensity =
+        aiPreviewState?.presetIntensity !== undefined ? aiPreviewState.presetIntensity : presetIntensity;
+
+      const customPresets = StorageService.getCustomTemplates();
+      const activePreset =
+        PRESETS.find((p) => p.id === effectivePresetId) ||
+        customPresets.find((p) => p.id === effectivePresetId) ||
+        null;
+
+      const {
+        adjustments: blendedAdj,
+        wheels: finalWheels,
+        curves: finalCurves,
+        hsl: finalHsl,
+      } = blendPresetAdjustments(
+        effectiveAdjustments,
+        activePreset,
+        effectivePresetIntensity,
+        wheels,
+        curves,
+        hsl
+      );
+
+      // Adaptive Preview Resolution:
+      // - While actively scrubbing/dragging: use 720p preview for instant 60fps throughput
+      // - When idle/settled: use crisp 1440p preview
+      const maxPreviewDim = interactive ? 720 : 1440;
+      const naturalMax = Math.max(
+        img.naturalWidth || originalDimensions.width,
+        img.naturalHeight || originalDimensions.height
+      );
+      const previewScale = naturalMax > maxPreviewDim ? maxPreviewDim / naturalMax : 1;
+
       try {
-        const img = imageElementRef.current;
-        const canvas = canvasRef.current;
-        if (!img || !canvas) return;
-
-        const effectiveAdjustments = aiPreviewState?.adjustments || adjustments;
-        const effectivePresetId =
-          aiPreviewState?.presetId !== undefined ? aiPreviewState.presetId : activePresetId;
-        const effectivePresetIntensity =
-          aiPreviewState?.presetIntensity !== undefined ? aiPreviewState.presetIntensity : presetIntensity;
-
-        const customPresets = StorageService.getCustomTemplates();
-        const activePreset =
-          PRESETS.find((p) => p.id === effectivePresetId) ||
-          customPresets.find((p) => p.id === effectivePresetId) ||
-          null;
-
-        const {
-          adjustments: blendedAdj,
-          wheels: finalWheels,
-          curves: finalCurves,
-          hsl: finalHsl,
-        } = blendPresetAdjustments(
-          effectiveAdjustments,
-          activePreset,
-          effectivePresetIntensity,
-          wheels,
-          curves,
-          hsl
-        );
-
-        // Responsive interactive preview scaling: avoid allocating massive pixel buffers on scrub
-        const maxPreviewDim = 1440;
-        const naturalMax = Math.max(
-          img.naturalWidth || originalDimensions.width,
-          img.naturalHeight || originalDimensions.height
-        );
-        const previewScale = naturalMax > maxPreviewDim ? maxPreviewDim / naturalMax : 1;
-
         const result = processImage(
           img,
           img.naturalWidth || originalDimensions.width,
@@ -447,30 +461,74 @@ function ChromaStudioApp() {
           finalHsl || hsl,
           cutout,
           backgroundReplacement,
-          bgImageRef.current
+          bgImageRef.current,
+          { skipMetrics: interactive }
         );
 
-        setHistogram(result.histogram);
-        setDominantColors(result.dominantColors);
+        // Only commit metrics (histogram/colors) to React state when settled to avoid re-render storms during dragging
+        if (!interactive) {
+          setHistogram(result.histogram);
+          setDominantColors(result.dominantColors);
+        }
       } catch (err) {
         console.error('Rendering pipeline error:', err);
-      } finally {
-        isRenderingRef.current = false;
       }
-    });
-  }, [
-    adjustments,
-    activePresetId,
-    presetIntensity,
-    geometry,
-    curves,
-    wheels,
-    hsl,
-    cutout,
-    backgroundReplacement,
-    aiPreviewState,
-    originalDimensions,
-  ]);
+    },
+    [
+      activePresetId,
+      presetIntensity,
+      geometry,
+      curves,
+      wheels,
+      hsl,
+      cutout,
+      backgroundReplacement,
+      aiPreviewState,
+      originalDimensions,
+    ]
+  );
+
+  // Frame scheduler: coalesces multiple slider events within one display refresh,
+  // guaranteeing latest values are always rendered without dropping or lagging.
+  const scheduleRender = useCallback(
+    (customAdj?: AdjustmentParameters, isInteractive?: boolean) => {
+      pendingRenderTaskRef.current = {
+        adjustments: customAdj || adjustmentsRef.current,
+        isInteractive: isInteractive ?? isInteractingRef.current,
+      };
+
+      if (renderRafIdRef.current !== null) {
+        return;
+      }
+
+      renderRafIdRef.current = requestAnimationFrame(() => {
+        renderRafIdRef.current = null;
+        const task = pendingRenderTaskRef.current;
+        if (task) {
+          pendingRenderTaskRef.current = null;
+          executeRender(task.adjustments, task.isInteractive);
+
+          // If a new task was queued while executeRender was running, schedule next frame immediately
+          const nextRef = pendingRenderTaskRef as React.RefObject<{
+            adjustments?: AdjustmentParameters;
+            isInteractive: boolean;
+          } | null>;
+          if (nextRef.current) {
+            scheduleRender(nextRef.current.adjustments, nextRef.current.isInteractive);
+          }
+        }
+      });
+    },
+    [executeRender]
+  );
+
+  useEffect(() => {
+    scheduleRenderRef.current = scheduleRender;
+  }, [scheduleRender]);
+
+  const runPipeline = useCallback(() => {
+    scheduleRender(undefined, false);
+  }, [scheduleRender]);
 
   // Preload background image asset whenever custom image or AI generated scene changes
   useEffect(() => {
@@ -911,39 +969,49 @@ function ChromaStudioApp() {
     presetIntensity,
   ]);
 
-  // Adjustment Change Handlers
-  const handleAdjustmentChange = (param: keyof AdjustmentParameters, value: number) => {
-    setAdjustments((prev) => ({ ...prev, [param]: value }));
-  };
+  // Instantaneous Adjustment Change Handlers with immediate 60fps frame scheduling
+  const handleAdjustmentChange = useCallback((param: keyof AdjustmentParameters, value: number) => {
+    setAdjustments((prev) => {
+      const next = { ...prev, [param]: value };
+      adjustmentsRef.current = next;
+      scheduleRender(next, isInteractingRef.current);
+      return next;
+    });
+  }, [scheduleRender]);
 
-  const handleResetAdjustmentParam = (param: keyof AdjustmentParameters) => {
+  const handleResetAdjustmentParam = useCallback((param: keyof AdjustmentParameters) => {
     commitImmediateHistory();
-    setAdjustments((prev) => ({ ...prev, [param]: DEFAULT_ADJUSTMENTS[param] }));
-  };
+    setAdjustments((prev) => {
+      const next = { ...prev, [param]: DEFAULT_ADJUSTMENTS[param] };
+      adjustmentsRef.current = next;
+      scheduleRender(next, false);
+      return next;
+    });
+  }, [commitImmediateHistory, scheduleRender]);
 
-  const handleResetAdjustmentGroup = (group: 'tone' | 'color') => {
+  const handleResetAdjustmentGroup = useCallback((group: 'tone' | 'color') => {
     commitImmediateHistory();
-    if (group === 'tone') {
-      setAdjustments((prev) => ({
-        ...prev,
-        exposure: 0,
-        brightness: 0,
-        contrast: 0,
-        highlights: 0,
-        shadows: 0,
-        whites: 0,
-        blacks: 0,
-      }));
-    } else {
-      setAdjustments((prev) => ({
-        ...prev,
-        temperature: 0,
-        tint: 0,
-        saturation: 0,
-        vibrance: 0,
-      }));
-    }
-  };
+    setAdjustments((prev) => {
+      const next = { ...prev };
+      if (group === 'tone') {
+        next.exposure = 0;
+        next.brightness = 0;
+        next.contrast = 0;
+        next.highlights = 0;
+        next.shadows = 0;
+        next.whites = 0;
+        next.blacks = 0;
+      } else {
+        next.temperature = 0;
+        next.tint = 0;
+        next.saturation = 0;
+        next.vibrance = 0;
+      }
+      adjustmentsRef.current = next;
+      scheduleRender(next, false);
+      return next;
+    });
+  }, [commitImmediateHistory, scheduleRender]);
 
   // Preset Selection Handlers
   const handleSelectPreset = (preset: Preset | null) => {

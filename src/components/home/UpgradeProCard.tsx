@@ -1,4 +1,5 @@
 import React from 'react';
+import { useStorageMonitor } from '../../hooks/useStorageMonitor';
 
 interface UpgradeProCardProps {
   onUpgradeClick: () => void;
@@ -8,13 +9,18 @@ interface UpgradeProCardProps {
 
 export const UpgradeProCard: React.FC<UpgradeProCardProps> = ({
   onUpgradeClick,
-  storageUsedMB = 0,
-  isPro = false,
+  storageUsedMB,
+  isPro: propIsPro,
 }) => {
-  const totalStorageMB = isPro ? 10240 : 100; // 10 GB for Pro, 100 MB for Free
-  const usedPercent = Math.min(100, Math.max(0, Math.round((storageUsedMB / totalStorageMB) * 100)));
-  const formattedUsed = storageUsedMB >= 1024 ? `${(storageUsedMB / 1024).toFixed(1)} GB` : `${storageUsedMB} MB`;
+  const monitor = useStorageMonitor();
+  const isPro = propIsPro !== undefined ? propIsPro : monitor.isPro;
+  const formattedUsed = storageUsedMB !== undefined
+    ? (storageUsedMB >= 1024 ? `${(storageUsedMB / 1024).toFixed(1)} GB` : `${storageUsedMB} MB`)
+    : monitor.formattedUsed;
   const formattedTotal = isPro ? '10 GB' : '100 MB';
+  const usedPercent = storageUsedMB !== undefined
+    ? Math.min(100, Math.max(0, Math.round((storageUsedMB / (isPro ? 10240 : 100)) * 100)))
+    : Math.min(100, Math.max(0, monitor.percentage));
 
   return (
     <div className="w-full rounded-2xl bg-[#111827]/80 border border-white/10 p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 backdrop-blur-xl shadow-xl shadow-black/20">

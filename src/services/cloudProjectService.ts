@@ -49,6 +49,19 @@ export interface StorageQuotaInfo {
   isPro: boolean;
   percentage: number;
   isExceeded: boolean;
+  formattedUsed: string;
+  formattedTotal: string;
+}
+
+export function formatStorageSize(bytes: number): string {
+  if (bytes <= 0) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 0.1) return '< 0.1 MB';
+  if (mb < 1000) {
+    return mb >= 100 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
+  }
+  const gb = bytes / (1024 * 1024 * 1024);
+  return Number.isInteger(gb) ? `${gb} GB` : `${gb.toFixed(1)} GB`;
 }
 
 export const FREE_PLAN_LIMITS = {
@@ -66,12 +79,22 @@ export const PRO_PLAN_LIMITS = {
 export class CloudProjectService {
   private static quotaCache = new Map<string, { quota: StorageQuotaInfo; timestamp: number }>();
   private static inFlightFetchProjects = new Map<string, Promise<CloudProjectRecord[]>>();
+  private static onQuotaInvalidatedListener?: (userId?: string) => void;
+
+  public static setQuotaInvalidatedListener(fn: (userId?: string) => void): void {
+    this.onQuotaInvalidatedListener = fn;
+  }
 
   /**
    * Invalidates cached storage quota for a user
    */
-  public static invalidateQuotaCache(userId: string): void {
-    this.quotaCache.delete(userId);
+  public static invalidateQuotaCache(userId?: string): void {
+    if (userId) {
+      this.quotaCache.delete(userId);
+    } else {
+      this.quotaCache.clear();
+    }
+    this.onQuotaInvalidatedListener?.(userId);
   }
 
   /**
@@ -88,6 +111,8 @@ export class CloudProjectService {
       isPro: false,
       percentage: 0,
       isExceeded: false,
+      formattedUsed: '0 MB',
+      formattedTotal: '100 MB',
     };
 
     if (!userId || !supabase || !isSupabaseConfigured) {
@@ -127,46 +152,69 @@ export class CloudProjectService {
         .is('deleted_at', null);
 
       let projectCount = 0;
-      let totalBytes = 0;
+      let totalDocBytes = 0;
 
       if (!error && projects) {
         projectCount = projects.length;
         projects.forEach((p) => {
           const doc = p.document as any;
           if (doc?.fileSize && typeof doc.fileSize === 'number') {
-            totalBytes += doc.fileSize;
+            totalDocBytes += doc.fileSize;
           } else {
-            totalBytes += 45 * 1024; // Nominal 45 KB document weight
+            totalDocBytes += 45 * 1024; // Nominal 45 KB document weight
           }
         });
       }
 
       // 3. Query storage objects in user folder to capture uploaded binary assets
+      let storageFilesBytes = 0;
       try {
         const { data: files } = await supabase.storage.from('projects').list(userId, { limit: 100 });
         if (files && files.length > 0) {
-          let storageFilesBytes = 0;
           for (const item of files) {
             if (item.metadata?.size) {
               storageFilesBytes += item.metadata.size;
-            } else if (item.id) {
-              // Check project subfolder assets
+            } else if (item.name) {
+              // Item is a project subfolder (e.g. {userId}/{projectId})
               const { data: subFiles } = await supabase.storage.from('projects').list(`${userId}/${item.name}`);
               if (subFiles) {
-                subFiles.forEach((sf) => {
-                  if (sf.metadata?.size) storageFilesBytes += sf.metadata.size;
-                });
+                for (const sf of subFiles) {
+                  if (sf.metadata?.size) {
+                    storageFilesBytes += sf.metadata.size;
+                  } else if (sf.name === 'assets') {
+                    // Check deeper assets folder: {userId}/{projectId}/assets
+                    const { data: assetFiles } = await supabase.storage.from('projects').list(`${userId}/${item.name}/assets`);
+                    if (assetFiles) {
+                      assetFiles.forEach((af) => {
+                        if (af.metadata?.size) storageFilesBytes += af.metadata.size;
+                      });
+                    }
+                  }
+                }
               }
             }
           }
-          if (storageFilesBytes > 0) {
-            totalBytes = Math.max(totalBytes, storageFilesBytes);
-          }
+        }
+      } catch (e) {
+        console.warn('[CloudProjectService] Error listing projects storage:', e);
+      }
+
+      // 4. Query avatar storage objects
+      try {
+        const { data: avatarFiles } = await supabase.storage.from('avatars').list(userId);
+        if (avatarFiles) {
+          avatarFiles.forEach((af) => {
+            if (af.metadata?.size) storageFilesBytes += af.metadata.size;
+          });
         }
       } catch {}
 
+      // Total cloud storage is actual binary files in storage plus document payloads
+      const totalBytes = storageFilesBytes > 0 ? storageFilesBytes + totalDocBytes : totalDocBytes;
       const usedMB = +(totalBytes / (1024 * 1024)).toFixed(2);
-      const percentage = Math.min(100, Math.round((totalBytes / maxBytes) * 100));
+      const percentage = maxBytes > 0 ? Math.min(999, Math.round((totalBytes / maxBytes) * 100)) : 0;
+      const formattedUsed = formatStorageSize(totalBytes);
+      const formattedTotal = isPro ? '10 GB' : '100 MB';
 
       const quota: StorageQuotaInfo = {
         usedBytes: totalBytes,
@@ -177,7 +225,9 @@ export class CloudProjectService {
         maxProjects,
         isPro,
         percentage,
-        isExceeded: totalBytes >= maxBytes || projectCount >= maxProjects,
+        isExceeded: totalBytes > maxBytes || (maxProjects !== Infinity && projectCount > maxProjects),
+        formattedUsed,
+        formattedTotal,
       };
 
       this.quotaCache.set(userId, { quota, timestamp: Date.now() });
